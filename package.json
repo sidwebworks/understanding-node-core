@@ -1,0 +1,15 @@
+{
+  "name": "understanding-node-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@translate-tools/core": "^0.2.10",
+    "execa": "^6.1.0",
+    "prettier": "^2.7.1"
+  }
+}
