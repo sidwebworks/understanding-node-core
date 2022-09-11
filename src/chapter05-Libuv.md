@@ -150,15 +150,15 @@ static void uv**read(uv_stream_t\* stream) {
  uv_buf_t buf;  
  ssize_t nread;  
  struct msghdr msg;  
- char cmsg_space[CMSG_SPACE(UV**CMSG_FD_SIZE)];  
+ char cmsg_space[CMSG_SPACE(UV**CMSG*FD_SIZE)];  
  int count;  
  int err;  
  int is_ipc;  
  // clear read part flag stream-&gt;flags &amp;= ~UV_STREAM_READ_PARTIAL;  
  count = 32;  
- /_
+ /*
 Streams are Unix domain types and are used for IPC, Unix domains are not necessarily used for IPC,
-Used as IPC to support passing file descriptors _/
+Used as IPC to support passing file descriptors \_/
 is_ipc = stream-&gt;type == UV_NAMED_PIPE &amp;&amp;  
  ((uv_pipe_t\*)//img-blog.csdnimg.cn/20210420235737186.png)
 

@@ -1,6 +1,8 @@
-# Chapter 2 Libuv data structure and general logic ## 2.1 Core structure uv_loop_s
+# Libuv data structure and general logic
 
-uv_loop_s is the core data structure of Libuv, and each event loop corresponds to a uv_loop_s structure. It records core data throughout the event loop. Let's analyze the meaning of each field.
+## 2.1 Core structure uv_loop_s
+
+`uv_loop_s` is the core data structure of Libuv, and each event loop corresponds to a `uv_loop_s` structure. It records core data throughout the event loop. Let's analyze the meaning of each field.
 
 ```cpp
 1 Field void* data of user-defined data;
@@ -72,11 +74,14 @@ uv_signal_t ​​child_watcher;
 int emfile_fd;
 ```
 
-##2.2 uv_handle_t
-In Libuv, uv_handle_t is similar to the base class in C++, and many subclasses inherit from it. Libuv mainly obtains the effect of inheritance by controlling the layout of memory. handle represents an object with a long life cycle. E.g 1 An active prepare handle whose callback will be executed each time the event loops.
+## 2.2 uv_handle_t
+
+In Libuv, `uv_handle_t` is similar to the base class in C++, and many subclasses inherit from it. Libuv mainly obtains the effect of inheritance by controlling the layout of memory. handle represents an object with a long life cycle. E.g 1 An active prepare handle whose callback will be executed each time the event loops.
 2 A TCP handle executes its callback every time a connection arrives.
 
-Let's take a look at uv_handle_tDefinition of ```cpp
+Let's take a look at `uv_handle_t` Definition of
+
+```cpp
 1 Custom data, used to associate some contexts, used in Node.js to associate the C++ object void\* data to which handle belongs;
 
 2 belongs to the event loop uv_loop_t\* loop;
@@ -87,34 +92,37 @@ Let's take a look at uv_handle_tDefinition of ```cpp
 
 5 The front and rear pointers used to organize the handle queue void\* handle_queue[2];
 
-6 file descriptor union {  
- int fd;  
- void\* reserved[4];  
+6 file descriptor union {
+ int fd;
+ void\* reserved[4];
  } u;
 
 7 When the handle is in the close queue, this field points to the next close node uv_handle_t\* next_closing;
 
 8 handle status and flag unsigned int flags;
 
-````
+```
 
 ### 2.2.1 uv_stream_s
-uv_stream_s is a structure representing a stream. In addition to inheriting the fields of uv_handle_t, it additionally defines the following fields ```cpp
+
+uv_stream_s is a structure representing a stream. In addition to inheriting the fields of uv_handle_t, it additionally defines the following fields
+
+```cpp
 1 The number of bytes waiting to be sent size_t write_queue_size;
 
 2 Function to allocate memory uv_alloc_cb alloc_cb;
 
 3 Callback uv_read_cb read_cb executed when reading data is successful;
 
-4 Initiate the structure corresponding to the connection uv_connect_t *connect_req;
+4 Initiate the structure corresponding to the connection uv_connect_t \*connect_req;
 
-5 Close the structure uv_shutdown_t *shutdown_req corresponding to the write end;
+5 Close the structure uv_shutdown_t \*shutdown_req corresponding to the write end;
 
-6 Used to insert epoll, register read and write events uv__io_t io_watcher;
+6 Used to insert epoll, register read and write events uv\_\_io_t io_watcher;
 
-7 queue to be sent void* write_queue[2];
+7 queue to be sent void\* write_queue[2];
 
-8 Send completed queue void* write_completed_queue[2];
+8 Send completed queue void\* write_completed_queue[2];
 
 9 Callback uv_connection_cb connection_cb executed when connection is received;
 
@@ -123,8 +131,9 @@ uv_stream_s is a structure representing a stream. In addition to inheriting the 
 11 fd returned by accept
 int accepted_fd;
 
-12 An fd has been accepted, and there is a new fd, temporarily stored void* queued_fds;
-````
+12 An fd has been accepted, and there is a new fd, temporarily stored void\* queued_fds;
+
+```
 
 ### 2.2.2 uv_async_s
 
@@ -207,7 +216,9 @@ uv_timer_s inherits uv_handle_t and additionally defines the following fields.
 
 ### 2.2.9 uv_process_s
 
-uv_process_s inherits uv_handle_t and additionally defines ```cpp
+uv_process_s inherits uv_handle_t and additionally defines
+
+```cpp
 1 Callback executed when the process exits uv_exit_cb exit_cb;
 
 2 process id
@@ -216,60 +227,68 @@ int pid;
 3 for inserting queues, process queues or pending queues void\* queue[2];
 
 4 Exit code, set int status when the process exits;
-
-````
+```
 
 ### 2.2.10 uv_fs_event_s
-uv_fs_event_s is used to monitor file changes. uv_fs_event_s inherits uv_handle_t and additionally defines ```cpp
+
+uv_fs_event_s is used to monitor file changes. uv_fs_event_s inherits uv_handle_t and additionally defines
+
+```cpp
 1 Monitored file path (file or directory)
-char* path;
+char\* path;
 
 2 The callback uv_fs_event_cb cb executed when the file changes;
-````
+
+```
 
 ### 2.2.11 uv_fs_poll_s
 
-uv_fs_poll_s inherits uv_handle_t and additionally defines ```cpp
+uv_fs_poll_s inherits uv_handle_t and additionally defines
+
+```cpp
 1 poll_ctx points to poll_ctx structure void\* poll_ctx;
 
-struct poll_ctx {
+struct poll*ctx {
 // corresponding handle
-uv_fs_poll_t* parent_handle;  
- // Mark whether to start polling and the reason for failure when polling int busy_polling;
+uv_fs_poll_t* parent_handle;
+// Mark whether to start polling and the reason for failure when polling int busy_polling;
 // How often to check if the file content has changed unsigned int interval;
 // The start time of each round of polling uint64_t start_time;
 // belongs to the event loop uv_loop_t* loop;
 // Callback when the file changes uv_fs_poll_cb poll_cb;
 // Timer for polling uv_timer_t timer_handle after timing timeout;
-// Record the context information of polling, file path, callback, etc. uv_fs_t fs_req;  
- // Save the file information returned by the operating system when polling uv_stat_t statbuf;
-// The monitored file path, the string value is appended to the structure char path[1]; /_ variable length _/
+// Record the context information of polling, file path, callback, etc. uv_fs_t fs_req;
+// Save the file information returned by the operating system when polling uv_stat_t statbuf;
+// The monitored file path, the string value is appended to the structure char path[1]; /* variable length \_/
 };
 
-`````
+```
 
 ### 2.2.12 uv_poll_s
+
 uv_poll_s inherits from uv_handle_t and additionally defines the following fields.
 
-````cpp
+```cpp
 1 Callback uv_poll_cb poll_cb executed when the monitored fd has an event of interest;
 
 2 Save the IO watcher of fd and callback and register it in epoll uv__io_t io_watcher;
-`````
+```
 
 ### 2.1.13 uv_signal_s
 
-uv_signal_s inherits uv_handle_t and additionally defines the following fields ```cpp
+uv_signal_s inherits uv_handle_t and additionally defines the following fields
+
+```cpp
 1 Callback uv_signal_cb signal_cb when a signal is received;
 
 2 registered signal int signum;
 
-3 It is used to insert the red-black tree. The process encapsulates the signals and callbacks of interest into uv_signal_s, and then inserts it into the red-black tree. When the signal arrives, the process writes the notification to the pipeline in the signal processing number to notify Libuv. Libuv will execute the callback corresponding to the process in the Poll IO stage. The definition of a red-black tree node is as follows struct {  
- struct uv_signal_s* rbe_left;  
- struct uv_signal_s* rbe_right;  
- struct uv_signal_s\* rbe_parent;
-int rbe_color;  
- } tree_entry;
+3 It is used to insert the red-black tree. The process encapsulates the signals and callbacks of interest into uv_signal_s, and then inserts it into the red-black tree. When the signal arrives, the process writes the notification to the pipeline in the signal processing number to notify Libuv. Libuv will execute the callback corresponding to the process in the Poll IO stage. The definition of a red-black tree node is as follows struct {
+struct uv_signal_s* rbe_left;
+struct uv_signal_s* rbe_right;
+struct uv_signal_s\* rbe_parent;
+int rbe_color;
+} tree_entry;
 
 4 Number of received signals unsigned int caught_signals;
 
@@ -278,22 +297,26 @@ int rbe_color;
 ```
 
 ## 2.3 uv_req_s
+
 Send the callback for execution (success or failure)
 uv_udp_send_cb send_cb;
-```
+
+````
 
 ### 2.3.5 uv_getaddrinfo_s
 
-uv_getaddrinfo_s represents a DNS request to query IP through domain name, additionally defined field ```cpp
+uv_getaddrinfo_s represents a DNS request to query IP through domain name, additionally defined field
+
+```cpp
 1 belongs to the event loop uv_loop_t\* loop;
 
 2 Node struct uv\_\_work work_req for inserting into the thread pool task queue during asynchronous DNS resolution;
 
 3 Callback uv_getaddrinfo_cb cb executed after DNS resolution;
 
-4 DNS query configuration struct addrinfo* hints;  
- char* hostname;  
- char\* service;
+4 DNS query configuration struct addrinfo* hints;
+char* hostname;
+char\* service;
 
 5 DNS resolution result struct addrinfo\* addrinfo;
 
@@ -302,10 +325,13 @@ uv_getaddrinfo_s represents a DNS request to query IP through domain name, addit
 ````
 
 ### 2.3.6 uv_getnameinfo_s
-uv_getnameinfo_s represents a DNS query request to query the domain name through IP, and the additionally defined field ```cpp
-1 belongs to the event loop uv_loop_t* loop;
 
-2 Node struct uv__work work_req for inserting into the thread pool task queue during asynchronous DNS resolution;
+uv_getnameinfo_s represents a DNS query request to query the domain name through IP, and the additionally defined field
+
+```cpp
+1 belongs to the event loop uv_loop_t\* loop;
+
+2 Node struct uv\_\_work work_req for inserting into the thread pool task queue during asynchronous DNS resolution;
 
 3 Callback for socket transfer domain name completion uv_getnameinfo_cb getnameinfo_cb;
 
@@ -317,11 +343,14 @@ uv_getnameinfo_s represents a DNS query request to query the domain name through
 char service[NI_MAXSERV];
 
 7 Query return code int retcode;
-````
+
+```
 
 ### 2.3.7 uv_work_s
 
-uv_work_s is used to submit tasks to the thread pool, additionally defined fields ```cpp
+uv_work_s is used to submit tasks to the thread pool, additionally defined fields
+
+```cpp
 1 belongs to the event loop uv_loop_t\* loop;
 
 2 Function uv_work_cb work_cb for processing tasks;
@@ -330,25 +359,28 @@ uv_work_s is used to submit tasks to the thread pool, additionally defined field
 
 4 Encapsulate a work and insert it into the thread pool queue. The work and done functions of work_req are the encapsulation of the above work_cb and after_work_cb struct uv\_\_work work_req;
 
-````
+```
 
 ### uv_fs_s
-uv_fs_s represents a file operation request, additionally defined fields ```cpp
+
+uv_fs_s represents a file operation request, additionally defined fields
+
+```cpp
 1 file operation type uv_fs_type fs_type;
 
-2 belongs to the event loop uv_loop_t* loop;
+2 belongs to the event loop uv_loop_t\* loop;
 
 3 Callback uv_fs_cb cb for file operation completion;
 
 4 Return code of file operation ssize_t result;
 
-5 Data returned by file operation void* ptr;
+5 Data returned by file operation void\* ptr;
 
-6 File operation path const char* path;
+6 File operation path const char\* path;
 
 7 stat information of the file uv_stat_t statbuf;
 
-8 When the file operation involves two paths, save the destination path const char *new_path;
+8 When the file operation involves two paths, save the destination path const char \*new_path;
 
 9 file descriptor uv_file file;
 
@@ -357,7 +389,7 @@ uv_fs_s represents a file operation request, additionally defined fields ```cpp
 11 Operation mode mode_t mode;
 
 12 The data and number passed in when writing the file unsigned int nbufs;
-uv_buf_t* bufs;
+uv_buf_t\* bufs;
 
 13 file offset off_t off;
 
@@ -367,13 +399,18 @@ uv_gid_t gid;
 15 Save the file modification and access time that need to be set, such as double atime when fs.utimes;
 double mtime;
 
-16 When asynchronous, it is used to insert the task queue, save the work function, and call back the function struct uv__work work_req;
+16 When asynchronous, it is used to insert the task queue, save the work function, and call back the function struct uv\_\_work work_req;
 
 17 Save the read data or length. e.g. read and sendfile
 uv_buf_t bufsml[4];
-````
 
-## 2.4 IO Observer IO observer is the core concept and data structure in Libuv. Let's take a look at its definition ```cpp
+```
+
+## 2.4 IO Observer
+
+IO observer is the core concept and data structure in Libuv. Let's take a look at its definition
+
+```cpp
 
 1.  struct uv\_\_io_s {
 2.  // Callback after the event is triggered 3. uv\_\_io_cb cb;
@@ -384,20 +421,25 @@ uv_buf_t bufsml[4];
 7.  int fd;
 8.  };
 
-`````
+```
 
 The IO observer encapsulates the file descriptor, events and callbacks, and then inserts it into the IO observer queue maintained by the loop. In the Poll IO stage, Libuv will register the file descriptor with the underlying event-driven module according to the information described by the IO observer. events of interest. When the registered event is triggered, the callback of the IO observer will be executed. Let's look at some logic of how to start the IO observer.
-### 2.4.1 Initialize IO observer ````cpp
-1. void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd) {
+
+### 2.4.1 Initialize IO observer
+
+```cpp
+
+1. void uv**io_init(uv**io_t\* w, uv\_\_io_cb cb, int fd) {
 2. // Initialize the queue, callback, fd that needs to be monitored
 3. QUEUE_INIT(&amp;w-&gt;pending_queue);
 4. QUEUE_INIT(&amp;w-&gt;watcher_queue);
 5. w-&gt;cb = cb;
 6. w-&gt;fd = fd;
 7. // Events of interest when epoll was added last time, set 8. w-&gt;events = 0;
-9. // Currently interested events, set 10. w-&gt;pevents = 0 before executing the epoll function again
-11. }
-`````
+8. // Currently interested events, set 10. w-&gt;pevents = 0 before executing the epoll function again
+9. }
+
+```
 
 ### 2.4.2 Register an IO observer to Libuv.
 
@@ -418,7 +460,11 @@ The IO observer encapsulates the file descriptor, events and callbacks, and then
 
 The uv\_\_io_start function is to insert an IO observer into the observer queue of Libuv, and save a mapping relationship in the watchers array. Libuv will process the IO observer queue during the Poll IO phase.
 
-### 2.4.3 Cancel the IO observer or the event uv\_\_io_stop to modify the events that the IO observer is interested in. If there are still interesting events, the IO observer will still be in the queue, otherwise it will be removed from ```cpp
+### 2.4.3 Cancel the IO observer or the event uv
+
+\_\_io_stop to modify the events that the IO observer is interested in. If there are still interesting events, the IO observer will still be in the queue, otherwise it will be removed from
+
+````cpp
 
 1.  void uv\_\_io_stop(uv_loop_t\* loop,
 2.  uv\_\_io_t\* w,
@@ -431,7 +477,7 @@ The uv\_\_io_start function is to insert an IO observer into the observer queue 
 9.  // Clear the previously registered events and save them in pevents, indicating the currently interesting events 10. w-&gt;pevents &amp;= ~events;
 10. // Not interested in all events 12. if (w-&gt;pevents == 0) {
 11. // Remove the IO watcher queue 14. QUEUE_REMOVE(&amp;w-&gt;watcher_queue);
-12. // reset 16. QUEUE_INIT(&amp;w-&gt;watcher_queue);  
+12. // reset 16. QUEUE_INIT(&amp;w-&gt;watcher_queue);
     mark, and record the number of active handles plus one. Only handles in REF and ACTIVE state will affect the exit of the event loop.
 
 ### 2.5.4. uv\_\_req_init
@@ -445,11 +491,13 @@ uv\_\_req_init initializes the type of request and records the number of request
 4. (loop)-&gt;active_reqs.count++;
 5. }
 6. while (0)
-```
+````
 
 ### 2.5.5. uv\_\_req_register
 
-The number of requests plus one ```cpp
+The number of requests plus one
+
+```cpp
 
 1.  #define uv\_\_req_register(loop, req)
 2.  do {
@@ -457,21 +505,26 @@ The number of requests plus one ```cpp
 4.  }
 5.  while (0)
 
-````
+```
 
-### 2.5.6. uv__req_unregister
-The number of requests minus one ```cpp
+### 2.5.6. uv\_\_req_unregister
+
+The number of requests minus one
+
+```cpp
 1. #define uv__req_unregister(loop, req)
 2. do {
 3. assert(uv__has_active_reqs(loop));
 4. (loop)-&gt;active_reqs.count--;
 5. }
 6. while (0)
-````
+```
 
 ### 2.5.7. uv\_\_handle_ref
 
-uv\_\_handle_ref marks the handle as the REF state. If the handle is in the ACTIVE state, the number of active handles is increased by one ```cpp
+uv\_\_handle_ref marks the handle as the REF state. If the handle is in the ACTIVE state, the number of active handles is increased by one
+
+```cpp
 
 1.  #define uv\_\_handle_ref(h)
 2.  do {
@@ -483,15 +536,19 @@ uv\_\_handle_ref marks the handle as the REF state. If the handle is in the ACTI
 8.  while (0)
 9.  uv\_\_handle_unref
 
-````
+```
 
-uv__handle_unref removes the REF state of the handle. If the handle is in the ACTIVE state, the number of active handles is reduced by one ```cpp
-1. #define uv__handle_unref(h)
+uv\_\_handle_unref removes the REF state of the handle. If the handle is in the ACTIVE state, the number of active handles is reduced by one
+
+```cpp
+
+1. #define uv\_\_handle_unref(h)
 2. do {
 3. if (((h)-&gt;flags &amp; UV_HANDLE_REF) == 0) break;
 4. (h)-&gt;flags &amp;= ~UV_HANDLE_REF;
 5. if (((h)-&gt;flags &amp; UV_HANDLE_CLOSING) != 0) break;
-6. if (((h)-&gt;flags &amp; UV_HANDLE_ACTIVE) != 0) uv__active_handle_rm(h);
+6. if (((h)-&gt;flags &amp; UV_HANDLE_ACTIVE) != 0) uv\_\_active_handle_rm(h);
 7. }
 8. while (0)
-````
+
+```

@@ -253,7 +253,7 @@ Setup is called directly in ChannelWrap
     }
 ```
 
-We see that Node.js initializes cares related logic here. The most important thing is to set the callback ares_sockstate_cb that is executed when the cares socket state changes (for example, the socket needs to read data or write data). The previous example of using cares mentioned the use of cares and event-driven modules, so how do cares and Libuv cooperate? cares provides a mechanism to notify event-driven modules when the socket state changes. DNS resolution is essentially network IO, so initiating a DNS query corresponds to a socket. The DNS query is initiated by cares, which means that the socket is maintained in cares, so how does Libuv know? It is the notification mechanism provided by cares that enables Libuv to know the socket corresponding to the DNS query, so it registers with Libuv, and notifies cares after the event is triggered. Let's look at the specific implementation below. We start our analysis by issuing a cname query. First review the cname query function exported by the cares_wrap module,
+We see that Node.js initializes cares related logic here. The most important thing is to set the callback ares*sockstate_cb that is executed when the cares socket state changes (for example, the socket needs to read data or write data). The previous example of using cares mentioned the use of cares and event-driven modules, so how do cares and Libuv cooperate? cares provides a mechanism to notify event-driven modules when the socket state changes. DNS resolution is essentially network IO, so initiating a DNS query corresponds to a socket. The DNS query is initiated by cares, which means that the socket is maintained in cares, so how does Libuv know? It is the notification mechanism provided by cares that enables Libuv to know the socket corresponding to the DNS query, so it registers with Libuv, and notifies cares after the event is triggered. Let's look at the specific implementation below. We start our analysis by issuing a cname query. First review the cname query function exported by the cares_wrap module,
 env-&gt;SetProtoMethod(channel_wrap, "queryCname", Query );Query is a C++ template function, QueryCnameWrap is a C++ class ```cpp
 template  
  static void Query(const FunctionCallbackInfo &amp; args) {  
@@ -262,9 +262,9 @@ template
  // The ChannelWrap object is saved in the Holder and unpacked ASSIGN_OR_RETURN_UNWRAP(&amp;channel, args.Holder());  
  Local req_wrap_obj = args[0].As ();  
  Local string = args[1].As ();  
- /_
+ /*
 Create a new object according to the parameters, here is QueryCnameWrap,
-And save the corresponding ChannelWrap object and operation related objects _/
+And save the corresponding ChannelWrap object and operation related objects \_/
 Wrap\* wrap = new Wrap(channel, req_wrap_obj);
 
        node::Utf8Value name(env-&gt;isolate(), string);

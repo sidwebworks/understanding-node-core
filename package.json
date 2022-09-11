@@ -5,7 +5,8 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "format": "prettier ./src --write",
+    "translate": "node main.js"
   },
   "dependencies": {
     "@translate-tools/core": "^0.2.10",

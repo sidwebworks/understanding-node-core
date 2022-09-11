@@ -664,5 +664,4 @@ We see here that ReceiveMessage will be continuously called to read the data, an
     }
 ```
 
-ReceiveMessage deserializes the message and returns it. The above is the whole process of inter-thread communication. The specific steps are shown in Figure 14-5.  
-
+ReceiveMessage deserializes the message and returns it. The above is the whole process of inter-thread communication. The specific steps are shown in Figure 14-5.

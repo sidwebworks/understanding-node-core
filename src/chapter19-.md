@@ -404,7 +404,7 @@ cyb is the test module I added. We can take a look at the contents of this modul
 Let's turn it into a string and see what is ```js
 Buffer.from([99,111,110,115,116, 32, 99,121, 98, 32, 61, 32,105,110,116,101,114,110, 97,108, 66,105,110,100,105,110,103, 40, 39, 99,
 121, 98, 95, 119, 114, 97, 112, 39, 41, 59, 32, 10, 109, 111, 100, 117, 108, 101, 46, 101, 120, 112, 111, 114, 116, 115, 32, 61, 32, 9,
- 121, 98, 59].join(',').split(',')).toString('utf-8')
+121, 98, 59].join(',').split(',')).toString('utf-8')
 
 ````
 

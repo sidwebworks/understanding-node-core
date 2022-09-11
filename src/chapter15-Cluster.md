@@ -430,5 +430,4 @@ In the above method, the main process completes bind and listen. Then pass the s
 Finally write a client test.
 client ```js
 const net = require('net');  
- for (let i = 0; i &lt; 50; i++) {  
-
+ for (let i = 0; i &lt; 50; i++) {

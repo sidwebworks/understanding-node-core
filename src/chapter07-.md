@@ -235,7 +235,7 @@ The uv\_\_signal_first_handle function implements the search of the red-black tr
     #define RB_NFIND(name, x, y) name##_RB_NFIND(x, y)
 ```
 
-Let's look at the implementation of name##\_RB_NFIND that is uv**signal_tree_s_RB_NFIND ```cpp
+Let's look at the implementation of name##\_RB*NFIND that is uv**signal_tree_s_RB_NFIND ```cpp
 static struct uv_signal_t ​​\* uv**signal_tree_s_RB_NFIND(struct uv\_\_signal_tree_s *head, struct uv_signal_t ​​*elm)  
  {  
  struct uv_signal_t ​​*tmp = RB_ROOT(head);  
@@ -243,9 +243,9 @@ static struct uv_signal_t ​​\* uv**signal_tree_s_RB_NFIND(struct uv\_\_signa
  int comp;  
  while (tmp) {  
  comp = cmp(elm, tmp);  
- /_  
+ /*  
  If elm is smaller than the current node, look for the left subtree, if it is greater than the current node, look for the right subtree.
-Equal to return _/
+Equal to return \_/
 if (comp &lt; 0) {  
  // record parent node res = tmp;  
  tmp = RB_LEFT(tmp, field);  

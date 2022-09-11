@@ -1,0 +1,6 @@
+[book]
+authors = ["Sidharth Rathi"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Understanding Node Core"
