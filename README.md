@@ -7,4 +7,4 @@ It is written in Chinese, but in-order to make it more accessible to the communi
 Credits for all the content and knowledge goes to [@theanarkh](https://github.com/theanarkh) ❤️
 
 
-I am still working on port other chapters, any contributions will be appreciated. 😊
+I am still working on porting other chapters, any contributions will be appreciated. 😊
