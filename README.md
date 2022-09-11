@@ -1,6 +1,6 @@
 # understanding-node-core
 
-This repository is for maintaining a English fork of the `understanding-node-js` book by @theanarkh 
+This repository is for maintaining a English fork of the `understand-nodejs` book by @theanarkh
 
 It is written in Chinese, but in-order to make it more accessible to the community I decided to put in the time and effort to translate this into English.
 
