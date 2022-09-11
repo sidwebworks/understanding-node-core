@@ -412,14 +412,14 @@ IO observer is the core concept and data structure in Libuv. Let's take a look a
 
 ```cpp
 
-1.  struct uv\_\_io_s {
-2.  // Callback after the event is triggered 3. uv\_\_io_cb cb;
-3.  // Used to insert the queue 5. void\* pending_queue[2];
-4.  void\* watcher_queue[2];
-5.  // Save the event of interest this time and set it when inserting the IO observer queue 8. unsigned int pevents;
-6.  // Save the current events of interest 10. unsigned int events;
-7.  int fd;
-8.  };
+1  struct uv\_\_io_s {
+2  // Callback after the event is triggered 3. uv\_\_io_cb cb;
+3  // Used to insert the queue 5. void\* pending_queue[2];
+4  void\* watcher_queue[2];
+5  // Save the event of interest this time and set it when inserting the IO observer queue 8. unsigned int pevents;
+6  // Save the current events of interest 10. unsigned int events;
+7  int fd;
+8  };
 
 ```
 
@@ -429,15 +429,15 @@ The IO observer encapsulates the file descriptor, events and callbacks, and then
 
 ```cpp
 
-1. void uv**io_init(uv**io_t\* w, uv\_\_io_cb cb, int fd) {
-2. // Initialize the queue, callback, fd that needs to be monitored
-3. QUEUE_INIT(&amp;w-&gt;pending_queue);
-4. QUEUE_INIT(&amp;w-&gt;watcher_queue);
-5. w-&gt;cb = cb;
-6. w-&gt;fd = fd;
-7. // Events of interest when epoll was added last time, set 8. w-&gt;events = 0;
-8. // Currently interested events, set 10. w-&gt;pevents = 0 before executing the epoll function again
-9. }
+1 void uv**io_init(uv**io_t\* w, uv\_\_io_cb cb, int fd) {
+2 // Initialize the queue, callback, fd that needs to be monitored
+3 QUEUE_INIT(&amp;w-&gt;pending_queue);
+4 QUEUE_INIT(&amp;w-&gt;watcher_queue);
+5 w-&gt;cb = cb;
+6 w-&gt;fd = fd;
+7 // Events of interest when epoll was added last time, set 8. w-&gt;events = 0;
+8 // Currently interested events, set 10. w-&gt;pevents = 0 before executing the epoll function again
+9 }
 
 ```
 
@@ -448,14 +448,14 @@ The IO observer encapsulates the file descriptor, events and callbacks, and then
 2. // Set the current events of interest 3. w-&gt;pevents |= events;
 4. // May need to expand 5. maybe_resize(loop, w-&gt;fd + 1);
 6. // If the event has not changed, return directly 7. if (w-&gt;events == w-&gt;pevents)
-8. return;
+7. if ((unsigned) w->fd >= loop->nwatchers)
+8.  return;
 9. // If the IO watcher is not mounted elsewhere, insert it into Libuv's IO watcher queue 10. if (QUEUE_EMPTY(&amp;w-&gt;watcher_queue))
 11. QUEUE_INSERT_TAIL(&amp;loop-&gt;watcher_queue, &amp;w-&gt;watcher_queue);
-12. // Save the mapping relationship 13. if (loop-&gt;watchers[w-&gt;fd] == NULL) {
-14. loop-&gt;watchers[w-&gt;fd] = w;
-15. loop-&gt;nfds++;
+12.  // Save the mapping relationship 13. if (loop-&gt;watchers[w-&gt;fd] == NULL) {
+14.  loop-&gt;watchers[w-&gt;fd] = w;
+15.  loop-&gt;nfds++;
 16. }
-17. }
 ```
 
 The uv\_\_io_start function is to insert an IO observer into the observer queue of Libuv, and save a mapping relationship in the watchers array. Libuv will process the IO observer queue during the Poll IO phase.
@@ -464,7 +464,7 @@ The uv\_\_io_start function is to insert an IO observer into the observer queue 
 
 \_\_io_stop to modify the events that the IO observer is interested in. If there are still interesting events, the IO observer will still be in the queue, otherwise it will be removed from
 
-````cpp
+```cpp
 
 1.  void uv\_\_io_stop(uv_loop_t\* loop,
 2.  uv\_\_io_t\* w,
@@ -480,7 +480,9 @@ The uv\_\_io_start function is to insert an IO observer into the observer queue 
 12. // reset 16. QUEUE_INIT(&amp;w-&gt;watcher_queue);
     mark, and record the number of active handles plus one. Only handles in REF and ACTIVE state will affect the exit of the event loop.
 
-### 2.5.4. uv\_\_req_init
+```
+
+### 2.5.4 uv\_\_req_init
 
 uv\_\_req_init initializes the type of request and records the number of requests, which will affect the exit of the event loop.
 
@@ -491,7 +493,7 @@ uv\_\_req_init initializes the type of request and records the number of request
 4. (loop)-&gt;active_reqs.count++;
 5. }
 6. while (0)
-````
+```
 
 ### 2.5.5. uv\_\_req_register
 

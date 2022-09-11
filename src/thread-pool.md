@@ -1,10 +1,22 @@
-# Chapter 4 Thread Pool Libuv is a single-threaded event-driven asynchronous IO library. For blocking or time-consuming operations, if executed in the main loop of Libuv, it will block the execution of subsequent tasks, so Libuv maintains a Thread pool, which is responsible for processing time-consuming or blocking operations in Libuv, such as file IO, DNS, and custom time-consuming tasks. The location of the thread pool in the Libuv architecture is shown in Figure 4-1.
+# Thread Pool
 
-![](https://img-blog.csdnimg.cn/20210420234827155.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+Libuv is a single-threaded event-driven asynchronous IO library. For blocking or time-consuming operations, if executed in the main loop of Libuv, it will block the execution of subsequent tasks,
+
+so Libuv maintains a Thread pool, which is responsible for processing time-consuming or blocking operations in Libuv, such as file IO, DNS, and custom time-consuming tasks. The location of the thread pool in the Libuv architecture is shown in Figure 4-1.
+
+![](https://img-blog.csdnimg.cn/20210420234827155.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
 The main thread of Libuv submits the task to the thread pool through the interface provided by the thread pool, and then immediately returns to the event loop to continue execution. The thread pool maintains a task queue, and multiple sub-threads will pick off the task node from it for execution. After the thread has completed the task, it will notify the main thread, and the main thread will execute the corresponding callback in the Poll IO stage of the event loop. Let's take a look at the implementation of the thread pool in Libuv.
 
-## 4.1 Communication between main thread and sub-thread The communication between Libuv sub-thread and main thread is implemented using the uv_async_t structure. Libuv uses the loop-&gt;async_handles queue to record all uv_async_t structures, and uses loop-&gt;async_io_watcher as the IO watcher of all uv_async_t structures, that is, all handles on the loop-&gt;async_handles queue share the async_io_watcher IO watcher. When inserting a uv_async_t structure into the async_handle queue for the first time, the IO observer will be initialized. If an async_handle is registered again, only one node will be inserted into the loop-&gt;async_handle queue and handle queue, and an IO observer will not be added. When the task corresponding to the uv_async_t structure is completed, the child thread will set the IO observer to be readable. Libuv handles IO observers during the Poll IO phase of the event loop. Let's take a look at the use of uv_async_t in Libuv.
+## 4.1 Communication between main thread and sub-thread
+
+The communication between Libuv sub-thread and main thread is implemented using the uv_async_t structure.
+
+Libuv uses the loop-&gt;async_handles queue to record all uv_async_t structures, and uses loop-&gt;async_io_watcher as the IO watcher of all uv_async_t structures, that is, all handles on the loop-&gt;async_handles queue share the async_io_watcher IO watcher.
+
+When inserting a uv_async_t structure into the async_handle queue for the first time, the IO observer will be initialized. If an async_handle is registered again, only one node will be inserted into the loop-&gt;async_handle queue and handle queue, and an IO observer will not be added. When the task corresponding to the uv_async_t structure is completed, the child thread will set the IO observer to be readable.
+
+Libuv handles IO observers during the Poll IO phase of the event loop. Let's take a look at the use of uv_async_t in Libuv.
 
 ### 4.1.1 Initialization Before using uv_async_t, you need to execute uv_async_init for initialization.
 
@@ -27,7 +39,7 @@ The main thread of Libuv submits the task to the thread pool through the interfa
     }
 ```
 
-The uv_async_init function mainly initializes some fields of the structure uv_async_t, and then executes QUEUE_INSERT_TAIL to add a node to Libuv's async_handles queue. We see that there is also a uv**async_start function. Let's look at the implementation of uv**async_start.
+The uv_async_init function mainly initializes some fields of the structure uv_async_t, and then executes QUEUE_INSERT_TAIL to add a node to Libuv's async_handles queue. We see that there is also a uv *async_start function. Let's look at the implementation of uv *async_start.
 
 ```cpp
     static int uv__async_start(uv_loop_t* loop) {
@@ -71,14 +83,18 @@ The uv_async_init function mainly initializes some fields of the structure uv_as
     }
 ```
 
-uv_async_start will only be executed once, and the timing is when uv_async_init is executed for the first time. The main logic of uv**async_start is as follows: 1 Obtain the communication descriptor (generate a communication fd through eventfd (acting as both read and write ends) or the pipeline generates two fds for inter-thread communication representing the read end and the write end).
-2 Encapsulate interesting events and callbacks to IO observers and then append them to the watcher_queue queue. In the Poll IO stage, Libuv will be registered in epoll. If there are tasks completed, the callback will also be executed in the Poll IO stage.
+uv_async_start will only be executed once, and the timing is when uv_async_init is executed for the first time. The main logic of uv\*\*async_start is as follows: 1 Obtain the communication descriptor (generate a communication fd through eventfd (acting as both read and write ends) or the pipeline generates two fds for inter-thread communication representing the read end and the write end).
+2 Encapsulate interesting events and callbacks to IO observers and then append them to the watcher_queue queue. In the Poll IO stage, Libuv will be registered in epoll.
+
+If there are tasks completed, the callback will also be executed in the Poll IO stage.
 3 Save the write side descriptor. When the task is completed, the main thread is notified through the write-side fd.
-We see that there is a lot of logic in the uv**async_start function to obtain the communication file descriptor. In general, it is to complete the function of communication between the two ends. After initializing the async structure, the Libuv structure is shown in Figure 4-2.
+We see that there is a lot of logic in the uv\*\*async_start function to obtain the communication file descriptor. In general, it is to complete the function of communication between the two ends. After initializing the async structure, the Libuv structure is shown in Figure 4-2.
 
-![](https://img-blog.csdnimg.cn/20210420234949238.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+![](https://img-blog.csdnimg.cn/20210420234949238.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
-### 4.1.2 After informing the main thread to initialize the async structure, if the task corresponding to the async structure is completed, the main thread will be notified, and the sub-thread will mark the task completion by setting the pending of the handle to 1, and then write to the pipeline The terminal writes a flag to notify the main thread that a task has been completed.
+### 4.1.2 After informing the main thread to initialize the async structure
+
+if the task corresponding to the async structure is completed, the main thread will be notified, and the sub-thread will mark the task completion by setting the pending of the handle to 1, and then write to the pipeline The terminal writes a flag to notify the main thread that a task has been completed.
 
 ```cpp
     int uv_async_send(uv_async_t* handle) {
@@ -128,9 +144,11 @@ We see that there is a lot of logic in the uv**async_start function to obtain th
     }
 ```
 
-uv_async_send first gets the fd corresponding to the write end, and then calls the write function. At this time, data is written to the write end of the pipeline, and the task is marked as complete. Where there is writing, there must be reading. The logic for reading is implemented in uv**io_poll. The uv**io_poll function is the function executed in the Poll IO stage in Libuv. In uv**io_poll, the pipeline will be found to be readable, and then the corresponding callback uv**async_io will be executed.
+uv_async_send first gets the fd corresponding to the write end, and then calls the write function. At this time, data is written to the write end of the pipeline, and the task is marked as complete. Where there is writing, there must be reading. The logic for reading is implemented in uv *io_poll. The uv *io_poll function is the function executed in the Poll IO stage in Libuv. In uv \*io_poll, the pipeline will be found to be readable, and then the corresponding callback uv \*async_io will be executed.
 
-### 4.1.3 Main thread processing callback ````cpp
+### 4.1.3 Main thread processing callback
+
+```cpp
 
      static void uv__async_io(uv_loop_t* loop,
                                 uv__io_t* w,
@@ -170,7 +188,13 @@ uv_async_send first gets the fd corresponding to the write end, and then calls t
              */
          if (cmpxchgi(&amp;h-&gt;pending, 1, 0) ==Task. Later we will analyze the logic of the worker.
 
-### 4.2.2 Submitting tasks to the thread pool After understanding the initialization of the thread pool, let's take a look at how to submit tasks to the thread pool ````cpp
+```
+
+### 4.2.2 Submitting tasks to the thread pool
+
+After understanding the initialization of the thread pool, let's take a look at how to submit tasks to the thread pool
+
+```cpp
 
      // Submit a task to the thread pool void uv__work_submit(uv_loop_t* loop,
                 struct uv__work* w,
@@ -187,18 +211,18 @@ uv_async_send first gets the fd corresponding to the write end, and then calls t
        post(&amp;w-&gt;wq, kind);
      }
 
-`````
+```
 
-Here, the business-related functions and the callback function after the task is completed are encapsulated into the uv__work structure. The uv__work structure is defined as follows.
+Here, the business-related functions and the callback function after the task is completed are encapsulated into the uv \*work structure. The uv \*work structure is defined as follows.
 
-````cpp
+```cpp
     struct uv__work {
       void (*work)(struct uv__work *w);
       void (*done)(struct uv__work *w, int status);
       struct uv_loop_s* loop;
       void* wq[2];
     };
-`````
+```
 
 Then call the post function to add a new task to the queue of the thread pool. Libuv divides tasks into three types, slow IO (DNS resolution), fast IO (file operations), CPU-intensive, etc. Kind is the type of task. Let's look at the post function next.
 
@@ -236,7 +260,7 @@ Then call the post function to add a new task to the queue of the thread pool. L
 
 This is the producer logic of the thread pool in Libuv. The architecture of the task queue is shown in Figure 4-3.
 
-![](https://img-blog.csdnimg.cn/20210420235058824.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+![](https://img-blog.csdnimg.cn/20210420235058824.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
 In addition to the above mentioned, Libuv also provides another way to produce tasks, the uv_queue_work function, which only submits CPU-intensive tasks (used in Node.js's crypto module). Let's look at the implementation of uv_queue_work.
 
@@ -261,7 +285,7 @@ In addition to the above mentioned, Libuv also provides another way to produce t
     }
 ```
 
-The uv_queue_work function actually doesn't have much logic. It saves the user's work function and calls it back into the request. Then encapsulate uv**queue_work and uv**queue_done into uv**work, and then submit tasks to the thread pool. So when this task is executed. It will execute the work function uv**queue_work.
+The uv_queue_work function actually doesn't have much logic. It saves the user's work function and calls it back into the request. Then encapsulate uv \*queue_work and uv \*queue_done into uv\*\*work, and then submit tasks to the thread pool. So when this task is executed. It will execute the work function uv \*queue_work.
 
 ```cpp
     static void uv__queue_work(struct uv__work* w) {
@@ -270,9 +294,11 @@ The uv_queue_work function actually doesn't have much logic. It saves the user's
     }
 ```
 
-We see that uv**queue_work actually encapsulates user-defined task functions. At this time, we can guess that uv**queue_done is just a simple encapsulation of the user's callback, that is, it will execute the user's callback.
+We see that uv \*queue_work actually encapsulates user-defined task functions. At this time, we can guess that uv \*queue_done is just a simple encapsulation of the user's callback, that is, it will execute the user's callback.
 
-### 4.2.3 Processing tasks After we submit the task, the thread must be processed naturally. When we initialized the thread pool, we analyzed that the worker function is responsible for processing the task. Let's take a look at the logic of the worker function.
+### 4.2.3 Processing tasks After we submit the task
+
+the thread must be processed naturally. When we initialized the thread pool, we analyzed that the worker function is responsible for processing the task. Let's take a look at the logic of the worker function.
 
 ```cpp
     static void worker(void* arg) {
@@ -323,15 +349,17 @@ We see that the logic of consumers seems to be more complicated. For tasks of sl
 
 ![](https://img-blog.csdnimg.cn/20210420235148855.png)
 
-### 4.2.4 Notify the main thread that after the thread has completed the task, it will not directly execute the user callback, but notify the main thread, which will be processed uniformly by the main thread. For the complex problems caused by threads, let's take a look at the logic of this piece. Everything starts from the initialization of Libuv ```cpp
+### 4.2.4 Notify the main thread that after the thread has completed the task
 
+it will not directly execute the user callback, but notify the main thread, which will be processed uniformly by the main thread. For the complex problems caused by threads, let's take a look at the logic of this piece. Everything starts from the initialization of Libuv
+
+```cpp
 uv_default_loop();-&gt;uv_loop_init();-&gt;uv_async_init(loop, &amp;loop-&gt;wq_async, uv\_\_work_done);
+```
 
-`````
+We have just analyzed the communication mechanism between the main thread and the sub-thread. wq_async is the async handle used for the communication between the sub-thread and the main thread in the thread pool, and its corresponding callback is uv**work_done. So when the thread task of a thread pool is completed, set loop-&gt;wq_async.pending = 1 through uv_async_send(&amp;w-&gt;loop-&gt;wq_async), and then notify the IO observer, Libuv will execute the corresponding handle in the Poll IO stage Call back the uv**work_done function. So let's look at the logic of this function.
 
-We have just analyzed the communication mechanism between the main thread and the sub-thread. wq_async is the async handle used for the communication between the sub-thread and the main thread in the thread pool, and its corresponding callback is uv__work_done. So when the thread task of a thread pool is completed, set loop-&gt;wq_async.pending = 1 through uv_async_send(&amp;w-&gt;loop-&gt;wq_async), and then notify the IO observer, Libuv will execute the corresponding handle in the Poll IO stage Call back the uv__work_done function. So let's look at the logic of this function.
-
-````cpp
+```cpp
     void uv__work_done(uv_async_t* handle) {
       struct uv__work* w;
       uv_loop_t* loop;
@@ -352,13 +380,17 @@ We have just analyzed the communication mechanism between the main thread and th
         // Execute the callback w-&gt;done(w, err);
       }
     }
-`````
+```
 
 The logic of this function is relatively simple. It processes the completed task nodes one by one and executes the callback. In Node.js, the callback here is the C++ layer, and then to the JS layer. The structure diagram is shown in Figure 4-5.
 
-![](https://img-blog.csdnimg.cn/20210420235212281.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+![](https://img-blog.csdnimg.cn/20210420235212281.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
-### 4.2.5 Cancellation of tasks In the design of the thread pool, canceling tasks is a relatively important capability, because some time-consuming or blocking operations are performed in threads. If a task can be canceled in time, it will reduce the A lot of unnecessary processing. However, in the Libuv implementation, the task can only be canceled when the task is still in the waiting queue. If a task is being processed by a thread, it cannot be canceled. Let's first look at how Libuv implements cancellation tasks. Libuv provides the uv\_\_work_cancel function to support the user to cancel the submitted task. Let's look at its logic.
+### 4.2.5 Cancellation of tasks In the design of the thread pool
+
+canceling tasks is a relatively important capability, because some time-consuming or blocking operations are performed in threads. If a task can be canceled in time, it will reduce the A lot of unnecessary processing. However, in the Libuv implementation, the task can only be canceled when the task is still in the waiting queue.
+
+If a task is being processed by a thread, it cannot be canceled. Let's first look at how Libuv implements cancellation tasks. Libuv provides the uv\_\_work_cancel function to support the user to cancel the submitted task. Let's look at its logic.
 
 ```cpp
     static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) {

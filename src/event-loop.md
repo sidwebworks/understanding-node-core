@@ -1,4 +1,4 @@
-# Chapter 3 Event Loop
+# Event Loop
 
 Node.js belongs to the single-threaded event loop architecture. The event loop is implemented by the uv_run function of Libuv. The while loop is executed in this function, and then the event callbacks of each phase are continuously processed.
 

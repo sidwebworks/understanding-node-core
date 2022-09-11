@@ -1,4 +1,6 @@
-# Chapter 5 The implementation of Libuv stream occupies a lot of space in Libuv and is a very core logic. The essence of a stream is to encapsulate operations on file descriptors, such as reading, writing, connecting, and listening. Let's first look at the data structure. The stream is represented by uv_stream_s in Libuv, which is inherited from uv_handle_s.
+# Streams
+
+mplementation of Libuv stream occupies a lot of space in Libuv and is a very core logic. The essence of a stream is to encapsulate operations on file descriptors, such as reading, writing, connecting, and listening. Let's first look at the data structure. The stream is represented by uv_stream_s in Libuv, which is inherited from uv_handle_s.
 
 ```cpp
 	 struct uv_stream_s {
@@ -39,11 +41,15 @@
 
 In the implementation of the stream, the core field is the IO observer, and the rest of the fields are related to the nature of the stream. The IO observer encapsulates the file descriptor corresponding to the stream and the callback when the file descriptor event is triggered. For example, read a stream, write a stream, close a stream, connect a stream, listen to a stream, there are corresponding fields in uv_stream_s to support. But it is essentially driven by IO observers.
 
-1 To read a stream, that is, when the readable event of the file descriptor in the IO observer is triggered, the user's read callback is executed.
-2 Write a stream, first write the data to the stream, wait until the file descriptor writable event in the IO observer is triggered, execute the real write, and execute the user's write end callback.
-3 To close a stream, that is, when the file descriptor writable event in the IO observer is triggered, the write end of the closed stream will be executed. If there is still data in the stream that has not been written, it will be written (such as sending) before the close operation is performed, and then the user's callback will be executed.
-4 Connection streams, such as connecting to a server as a client. That is, when the file descriptor readable event in the IO observer is triggered (for example, the establishment of the three-way handshake is successful), the user's callback is executed.
-5 Listening to the stream, that is, when the file descriptor readable event in the IO observer is triggered (for example, there is a connection that completes the three-way handshake), the user's callback is executed.
+1. To read a stream, that is, when the readable event of the file descriptor in the IO observer is triggered, the user's read callback is executed.
+
+2. Write a stream, first write the data to the stream, wait until the file descriptor writable event in the IO observer is triggered, execute the real write, and execute the user's write end callback.
+
+3. To close a stream, that is, when the file descriptor writable event in the IO observer is triggered, the write end of the closed stream will be executed. If there is still data in the stream that has not been written, it will be written (such as sending) before the close operation is performed, and then the user's callback will be executed.
+
+4. Connection streams, such as connecting to a server as a client. That is, when the file descriptor readable event in the IO observer is triggered (for example, the establishment of the three-way handshake is successful), the user's callback is executed.
+
+5. Listening to the stream, that is, when the file descriptor readable event in the IO observer is triggered (for example, there is a connection that completes the three-way handshake), the user's callback is executed.
 
 Let's take a look at the specific implementation of the stream ## 5.1 Initializing the stream Before using uv_stream_t, it needs to be initialized first. Let's take a look at how to initialize a stream.
 
@@ -74,7 +80,9 @@ Let's take a look at the specific implementation of the stream ## 5.1 Initializi
 
 The logic of initializing a stream is very simple and clear, which is to initialize the relevant fields. It should be noted that when initializing the IO observer, the set processing function is uv\_\_stream_io, and we will analyze the specific logic of this function later.
 
-## 5.2 Open stream ````cpp
+## 5.2 Open stream
+
+```cpp
 
      int uv__stream_open(uv_stream_t* stream, int fd, int flags) {
          // If the fd has not been set or the same fd is set, continue, otherwise return UV_EBUSY
@@ -99,12 +107,15 @@ The logic of initializing a stream is very simple and clear, which is to initial
          return 0;
      }
 
-`````
+```
 
 Opening a stream is essentially associating a file descriptor with the stream. Subsequent operations are based on this file descriptor, as well as some attribute settings.
-## 5.3 Reading Streams After we execute uv_read_start on a stream, the stream's data (if any) will flow continuously to the caller through the read_cb callback.
 
-````cpp
+## 5.3 Reading Streams After we execute uv_read_start on a stream
+
+the stream's data (if any) will flow continuously to the caller through the read_cb callback.
+
+```cpp
 	 int uv_read_start(uv_stream_t* stream,
 	                    uv_alloc_cb alloc_cb,
 	                    uv_read_cb read_cb) {
@@ -119,7 +130,7 @@ Opening a stream is essentially associating a file descriptor with the stream. S
         // Activate handle, if there is an activated handle, the event loop will not exit uv__handle_start(stream);
         return 0;
 	 }
-`````
+```
 
 Executing uv_read_start essentially registers a waiting read event in epoll for the file descriptor corresponding to the stream, and records the corresponding context, such as the read callback function and the function of allocating memory. Then mark it as doing a read operation. When the read event is triggered, the read callback will be executed. In addition to reading data, there is also a read operation that stops reading. The corresponding function is uv_read_stop.
 
@@ -145,28 +156,37 @@ There is also a helper function that determines whether the stream has the reada
 	 }
 ```
 
-The above function just registers and deregisters the read event. If the read event is triggered, we also need to read the data ourselves. Let's take a look at the real read logic ```cpp
-static void uv**read(uv_stream_t\* stream) {  
- uv_buf_t buf;  
- ssize_t nread;  
- struct msghdr msg;  
- char cmsg_space[CMSG_SPACE(UV**CMSG*FD_SIZE)];  
- int count;  
- int err;  
- int is_ipc;  
- // clear read part flag stream-&gt;flags &amp;= ~UV_STREAM_READ_PARTIAL;  
- count = 32;  
- /*
-Streams are Unix domain types and are used for IPC, Unix domains are not necessarily used for IPC,
-Used as IPC to support passing file descriptors \_/
-is_ipc = stream-&gt;type == UV_NAMED_PIPE &amp;&amp;  
- ((uv_pipe_t\*)//img-blog.csdnimg.cn/20210420235737186.png)
+The above function just registers and deregisters the read event. If the read event is triggered, we also need to read the data ourselves. Let's take a look at the real read logic
+
+```cpp
+static void uv**read(uv_stream_t\* stream) {
+ uv_buf_t buf;
+ ssize_t nread;
+ struct msghdr msg;
+ char cmsg_space[CMSG_SPACE(UV**CMSG*FD_SIZE)];
+ int count;
+ int err;
+ int is_ipc;
+ // clear read part flag stream-&gt;flags &amp;= ~UV_STREAM_READ_PARTIAL;
+ count = 32;
+
+// Streams are Unix domain types and are used for IPC, Unix domains are not necessarily used for IPC,
+// Used as IPC to support passing file descriptors \_/
+
+is_ipc = stream-&gt;type == UV_NAMED_PIPE &amp;&amp;
+((uv_pipe_t\*) //img-blog.csdnimg.cn/20210420235737186.png)
+
+```
 
 Let's take a look at the structure after fork as shown in Figure 5-2.
 
-![](https://img-blog.csdnimg.cn/20210420235751592.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+![](https://img-blog.csdnimg.cn/20210420235751592.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
-If the parent process or the child process creates a new file descriptor after fork, the parent and child processes cannot share it. Suppose the parent process wants to pass a file descriptor to the child process, what should we do? According to the relationship between process and file descriptor. The thing to do when passing the file descriptor is not only to create a new fd in the child process, but also to establish the association of fd-&gt;file-&gt;inode, but we don't need to pay attention to these, because the operating system handles it for us, We just need to send the file descriptor we want to pass to the other end of the Unix domain via sendmsg. The other end of the Unix domain can then read the file descriptor from the data via recvmsg. Then use the uv\_\_stream_recv_cmsg function to save the file descriptor parsed from the data.
+If the parent process or the child process creates a new file descriptor after fork, the parent and child processes cannot share it. Suppose the parent process wants to pass a file descriptor to the child process, what should we do? According to the relationship between process and file descriptor.
+
+The thing to do when passing the file descriptor is not only to create a new fd in the child process, but also to establish the association of fd-&gt;file-&gt;inode, but we don't need to pay attention to these, because the operating system handles it for us, We just need to send the file descriptor we want to pass to the other end of the Unix domain via sendmsg.
+
+The other end of the Unix domain can then read the file descriptor from the data via recvmsg. Then use the uv\_\_stream_recv_cmsg function to save the file descriptor parsed from the data.
 
 ```cpp
 	 static int uv__stream_recv_cmsg(uv_stream_t* stream,
@@ -207,7 +227,9 @@ If the parent process or the child process creates a new file descriptor after f
 	 }
 ```
 
-uv**stream_recv_cmsg will parse out the file descriptors from the data and store them in the stream. The first file descriptor is stored in accepted_fd, and the rest are processed by uv**stream_queue_fd.
+uv \*stream_recv_cmsg will parse out the file descriptors from the data and store them in the stream.
+
+The first file descriptor is stored in accepted_fd, and the rest are processed by uv \*stream_queue_fd.
 
 ```cpp
 	 struct uv__stream_queued_fds_s {
@@ -256,7 +278,7 @@ uv**stream_recv_cmsg will parse out the file descriptors from the data and store
 
 The memory structure is shown in Figure 5-3.
 
-![](https://img-blog.csdnimg.cn/20210420235824605.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF,t
+![](https://img-blog.csdnimg.cn/20210420235824605.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_16,color_FFFFFF)
 
 Finally, let's look at the processing after reading,
 
@@ -275,7 +297,9 @@ Finally, let's look at the processing after reading,
 
 We see that when the stream ends, first log out and wait for a readable event, and then notify the upper layer through a callback.
 
-## 5.4 Write stream We can write data to the stream by executing uv_write on the stream.
+## 5.4 Write stream
+
+We can write data to the stream by executing uv_write on the stream.
 
 ```cpp
 	 int uv_write(
@@ -447,7 +471,9 @@ Closing the write side of the stream is equivalent to sending a close request to
 
 The write end of the stream can be closed by calling shutdown, for example, the write end of the TCP stream can be closed after sending data. But still readable.
 
-## 5.6 close stream ```cpp
+## 5.6 close stream
+
+```cpp
 
      void uv__stream_close(uv_stream_t* handle) {
        unsigned int i;
@@ -479,12 +505,15 @@ The write end of the stream can be closed by calling shutdown, for example, the 
        }
      }
 
-`````
+```
 
 Closing a stream is to unregister the stream registered in epoll and close the file descriptor it holds.
-## 5.7 Connection flow Connection flow is for TCP and Unix domains, so we first introduce some network programming related content, first of all, we must have a socket. Let's see how to create a new socket in Libuv.
 
-````cpp
+## 5.7 Connection flow
+
+Connection flow is for TCP and Unix domains, so we first introduce some network programming related content, first of all, we must have a socket. Let's see how to create a new socket in Libuv.
+
+```cpp
     int uv__socket(int domain, int type, int protocol) {
       int sockfd;
       int err;
@@ -498,7 +527,7 @@ Closing a stream is to unregister the stream registered in epoll and close the f
 
       return sockfd;
     }
-`````
+```
 
 In Libuv, the socket mode is non-blocking. uv_socket is the function to apply for socket in Libuv, but Libuv does not directly call this function, but encapsulates it.
 
@@ -521,7 +550,9 @@ In Libuv, the socket mode is non-blocking. uv_socket is the function to apply fo
 ```
 
 There are many logical branches of the maybe_new_socket function, mainly as follows 1 If the stream has not been associated with fd, apply for a new fd to be associated with the stream 2 If the stream has been associated with an fd.
+
 If the stream is marked with a binding address, but an address has been bound by Libuv (Libuv will set the UV_HANDLE_BOUND flag, the user may also directly call the bind function to bind). You do not need to bind again, just update the flags.
+
 If the stream is marked with a binding address, but an address has not been bound through Libuv, at this time, getsocketname is used to determine whether the user has bound an address through the bind function. If yes, there is no need to perform the binding operation again. Otherwise bind to an address randomly.
 
 The logic of the above two functions is mainly to apply for a socket and bind an address to the socket. Let's take a look at the implementation of the connection flow.
@@ -569,10 +600,12 @@ The logic of the above two functions is mainly to apply for a socket and bind an
     }
 ```
 
-The logic of the connection flow is roughly as follows: 1 Apply for a socket and bind an address.
-2 According to the given server address, initiate a three-way handshake, non-blocking, it will return directly to continue execution, and will not wait until the three-way handshake is completed.
-3 Mount a connect request to the stream.
-4 Set the events of interest to the IO observer as writable. Then insert the IO observer into the IO observer queue of the event loop. When waiting for writability (complete the three-way handshake), the cb callback will be executed.
+1. The logic of the connection flow is roughly as follows: 1 Apply for a socket and bind an address.
+2. According to the given server address, initiate a three-way handshake, non-blocking, it will return directly to continue execution, and will not wait until the three-way handshake is completed.
+
+3. Mount a connect request to the stream.
+
+4. Set the events of interest to the IO observer as writable. Then insert the IO observer into the IO observer queue of the event loop. When waiting for writability (complete the three-way handshake), the cb callback will be executed.
 
 When a writable event is triggered, uv\_\_stream_io will be executed. Let's take a look at the specific logic.
 
@@ -626,7 +659,9 @@ We continue to look at uv\_\_stream_connect.
 
 The logic of the connection flow is 1. Initiate a non-blocking connection 2. Register and wait for a writable event. 3. When the writable event is triggered, tell the caller the connection result. 4. If the connection is successful, the data of the write queue is sent. The callback (if any) for each write request.
 
-## 5.8 Listening stream Listening stream is for TCP or Unix domain, mainly to change a socket to listen state. and set some properties.
+## 5.8 Listening stream
+
+Listening stream is for TCP or Unix domain, mainly to change a socket to listen state. and set some properties.
 
 ```cpp
     int uv_tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) {
@@ -733,10 +768,12 @@ When we see a connection coming, Libuv will pick a node from the queue of comple
 
 The client is the stream used to communicate with the client, and accept is to save the accept_fd to the client, and the client can communicate with the peer through fd. After consuming accept_fd, if there are still pending fds, you need to add one to accept_fd (for Unix domain), and the others continue to be queued for processing. If there are no pending fds, register and wait for readable events and continue to process new connections.
 
-## 5.9 Destroying a stream When we no longer need a stream, we will first call uv_close to close the stream. Closing the stream just cancels the event and releases the file descriptor. After calling uv_close, the structure corresponding to the stream will be added. When it comes to the closing queue, in the closing phase, the operation of destroying the stream will be performed, such as discarding the data that has not been written yet, and executing the callback of the corresponding stream. Let's take a look at the function uv\_\_stream_destroy that destroys the stream.
+## 5.9 Destroying a stream
+
+When we no longer need a stream, we will first call uv_close to close the stream. Closing the stream just cancels the event and releases the file descriptor. After calling uv_close, the structure corresponding to the stream will be added. When it comes to the closing queue, in the closing phase, the operation of destroying the stream will be performed, such as discarding the data that has not been written yet, and executing the callback of the corresponding stream. Let's take a look at the function uv\_\_stream_destroy that destroys the stream.
 
 ```cpp
-    voidIf the mode of the stream is read continuously,
+    void If the mode of the stream is read continuously,
           1 If only part is read (UV_STREAM_READ_PARTIAL is set),
                   and did not read to the end (UV_STREAM_READ_EOF is not set),
            Then it is directly processed for the end of reading,
