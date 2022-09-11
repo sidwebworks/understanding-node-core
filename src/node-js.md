@@ -522,9 +522,10 @@ function setupChildProcessIpcChannel() {
   if (process.env.NODE_CHANNEL_FD) {
     const fd = parseInt(process.env.NODE_CHANNEL_FD, 10);
     delete process.env.NODE_CHANNEL_FD;
-    const serializationMode = process.env.NODE_CHANNEL_SERIALIZATION_MODE || 'json';
+    const serializationMode =
+      process.env.NODE_CHANNEL_SERIALIZATION_MODE || "json";
     delete process.env.NODE_CHANNEL_SERIALIZATION_MODE;
-    require('child_process')._forkChild(fd, serializationMode);
+    require("child_process")._forkChild(fd, serializationMode);
   }
 }
 ```

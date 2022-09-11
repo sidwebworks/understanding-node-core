@@ -1,9 +1,10 @@
 This chapter introduces the principles and implementation of some core modules of the C++ layer in Node.js, which are used by many modules in Node.js. Only by understanding the principles of these modules can you better understand how JS calls Libuv through the C++ layer in Node.js, and how it returns from Libuv.
 
-##6.1 BaseObject
+## 6.1 BaseObject
+
 BaseObject is the base class for most classes in the C++ layer.
 
-```c
+```cpp
     class BaseObject : public MemoryRetainer {
      public:
      // …
@@ -16,7 +17,9 @@ BaseObject is the base class for most classes in the C++ layer.
 
 The implementation of BaseObject is very complicated, and only some commonly used implementations are introduced here.
 
-### 6.1.1 Constructor ````c
+### 6.1.1 Constructor
+
+```c
 
      // Store the object in persistent_handle_, and take it out through object() if necessary BaseObject::BaseObject(Environment* env,
                               v8::Local object)
@@ -25,22 +28,32 @@ The implementation of BaseObject is very complicated, and only some commonly use
        // Store this in object object-&gt;SetAlignedPointerInInternalField(0, static_cast (this));
      }
 
-`````
+```
 
-The constructor is used to save the relationship between objects (the object used by JS and the C++ layer object related to it, the object in the figure below is the object we usually create by using the C++ module in the JS layer, such as new TCP()). We can see the usefulness later, and the relationship is shown in Figure 6-1.
+The constructor is used to save the relationship between objects (the object used by JS and the C++ layer object related to it, the object in the figure below is the object we usually create by using the C++ module in the JS layer, such as new TCP()).
+
+We can see the usefulness later, and the relationship is shown in Figure 6-1.
+
 ![](https://img-blog.csdnimg.cn/c732bcd047c349adbb9f5d4a501a1345.png)
-Figure 6-1
 
-### 6.1.2 Get the encapsulated object ````c
+### 6.1.2 Get the encapsulated object
+
+```c
+
     v8::Local BaseObject::object() const {
       return PersistentToLocal::Default(env()-&gt;isolate(),
                                             persistent_handle_);
     }
-`````
 
-### 6.1.3 Get the saved BaseObject object from the object ```c
+```
 
-     // Take out the BaseObject object saved inside through obj BaseObject* BaseObject::FromJSObject(v8::Local obj) {
+### 6.1.3 Get the saved BaseObject object from the object
+
+```c
+
+     // Take out the BaseObject object saved inside through obj BaseObject*
+
+     BaseObject::FromJSObject(v8::Local obj) {
        return static_cast (obj-&gt;GetAlignedPointerFromInternalField(0));
      }
 
@@ -49,9 +62,12 @@ Figure 6-1
        return static_cast (FromJSObject(object));
      }
 
-`````
+```
 
-### 6.1.4 Unpacking ````c
+### 6.1.4 Unpacking
+
+```c
+
     // Take the corresponding BaseObject object template from obj
     inline T* Unwrap(v8::Local obj) {
       return BaseObject::FromJSObject (obj);
@@ -65,7 +81,8 @@ Figure 6-1
         if (*ptr == nullptr) \
           return __VA_ARGS__; \
       } while (0)
-`````
+
+```
 
 ## 6.2 AsyncWrap
 
@@ -77,9 +94,11 @@ AsyncWrap implements the async_hook module, but here we only focus on its functi
         int argc,
         v8::Local *argv) {
       v8::Local cb_v;
-      // According to the property value represented by the string, get the value corresponding to the property from the object. is a function if (!object()-&gt;Get(env()-&gt;context(), symbol).ToLocal(&amp;cb_v))
+      // According to the property value represented by the string, get the value corresponding to the property from the object. is a function
+      if (!object()-&gt;Get(env()-&gt;context(), symbol).ToLocal(&amp;cb_v))
         return v8::MaybeLocal ();
-      // is a function if (!cb_v-&gt;IsFunction()) {
+      // is a function
+      if (!cb_v-&gt;IsFunction()) {
         return v8::MaybeLocal ();
       }
       // callback, see async_wrap.cc
@@ -89,7 +108,7 @@ AsyncWrap implements the async_hook module, but here we only focus on its functi
 
 The above is just the entry function, let's look at the real implementation.
 
-```
+```cpp
     MaybeLocal AsyncWrap::MakeCallback(const Local cb,
                                               int argc,
                                               Local *argv) {
@@ -101,7 +120,7 @@ The above is just the entry function, let's look at the real implementation.
 
 Then take a look at InternalMakeCallback
 
-```
+```cpp
     MaybeLocal InternalMakeCallback(Environment* env,
                                            Local recv,
                                            const Local callback,
@@ -160,7 +179,9 @@ HandleWrap is the encapsulation of Libuv uv_handle_t and the base class of many 
     };
 ```
 
-### 6.3.1 New handle and initialization ````cpp
+### 6.3.1 New handle and initialization
+
+```cpp
 
      Local HandleWrap::GetConstructorTemplate(Environment* env) {
        Local tmpl = env-&gt;handle_wrap_ctor_template();
@@ -196,6 +217,7 @@ HandleWrap is the encapsulation of Libuv uv_handle_t and the base class of many 
 
 ```
 
+```cpp
 HandleWrap inherits the BaseObject class, and the relationship diagram after initialization is shown in Figure 6-2.
 AsyncWrap::ProviderType provider);
       inline ~ReqWrap() override;
@@ -221,14 +243,16 @@ AsyncWrap::ProviderType provider);
 ```
 
 Let's take a look at the implementation of cpp
-template  
- ReqWrap ::ReqWrap(Environment\* env,  
- v8::Local object,  
- AsyncWrap::ProviderType provider)  
- : AsyncWrap(env, object, provider),  
- ReqWrapBase(env) {  
- // Initialize state Reset();  
- }
+template
+
+```cpp
+ReqWrap ::ReqWrap(Environment\* env,
+v8::Local object,
+AsyncWrap::ProviderType provider)
+: AsyncWrap(env, object, provider),
+ReqWrapBase(env) {
+// Initialize state Reset();
+}
 
      // Save the relationship template between libuv data structure and ReqWrap instance
      void ReqWrap ::Dispatched() {
@@ -270,40 +294,45 @@ template
        return err;
      }
 
-`````
+```
 
 We see that ReqWrap abstracts the process of requesting Libuv, and the specifically designed data structure is implemented by subclasses. Let's look at the implementation of a subclass.
 
-````cpp
+```cpp
     // When requesting Libuv, the data structure is uv_connect_t, which means a connection request class ConnectWrap : public ReqWrap {
      public:
       ConnectWrap(Environment* env,
                   v8::Local req_wrap_obj,
                   AsyncWrap::ProviderType provider);
     };
-`````
+```
 
 ## 6.5 How JS uses C++
 
 The ability of JS to call C++ modules is provided by V8, and Node.js uses this ability. In this way, we only need to face JS, and leave the rest to Node.js. This article first talks about how to use V8 to implement JS to call C++, and then talk about how Node.js does it.
 
-1 JS calls C++
-First, let's introduce two very core classes in V8, FunctionTemplate and ObjectTemplate. As the names suggest, these two classes define templates, just like the design drawings when building a house. Through the design drawings, we can build the corresponding house. V8 is also, if you define a template, you can create a corresponding instance through this template. These concepts are described below (for convenience, the following is pseudocode).
+1. **JS calls C++**
+   First, let's introduce two very core classes in V8, FunctionTemplate and ObjectTemplate. As the names suggest, these two classes define templates, just like the design drawings when building a house. Through the design drawings, we can build the corresponding house. V8 is also, if you define a template, you can create a corresponding instance through this template. These concepts are described below (for convenience, the following is pseudocode).
 
-1.1 Define a function template ```cpp
-Local functionTemplate = v8::FunctionTemplate::New(isolate(), New);  
- // Define the name of the function functionTemplate-&gt;SetClassName('TCP')
+1.1 **Define a function template**
 
-`````
+```cpp
+Local functionTemplate = v8::FunctionTemplate::New(isolate(), New);
+// Define the name of the function functionTemplate-&gt;SetClassName('TCP')
 
-First define a FunctionTemplate object. We see that the second parameter of FunctionTemplate is a function, and when we execute the function created by FunctionTemplate, v8 will execute the New function. Of course we can also not pass it on.
-1.2 Define the prototype content of the function template The prototype is the function.prototype in JS. If you understand the knowledge in JS, it is easy to understand the code in C++.
+```
 
-````cpp
+First define a `FunctionTemplate` object. We see that the second parameter of FunctionTemplate is a function, and when we execute the function created by FunctionTemplate, v8 will execute the New function. Of course we can also not pass it on.
+
+1.2 Define the prototype content of the function template The prototype is the function.prototype in JS.
+
+If you understand the knowledge in JS, it is easy to understand the code in C++.
+
+```cpp
     v8::Local t = v8::FunctionTemplate::New(isolate(), callback);
     t-&gt;SetClassName('test');
     // Define a property on prototype t-&gt;PrototypeTemplate()-&gt;Set('hello', 'world');
-`````
+```
 
 1.3 Define the content of the instance template corresponding to the function template An instance template is an ObjectTemplate object. It defines the properties of the return value when the function created by the function template is executed as new.
 
@@ -334,16 +363,81 @@ InstanceTemplate returns an ObjectTemplate object. The SetInternalFieldCount fun
     };
 ```
 
-The memory layout is shown in Figure 6-5.  
- ![](https://img-blog.csdnimg.cn/9cfde2c74ac24d529350ffda1bc6c2ac.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA,FF_FFt==,0)\_16  
- Figure 6-5
+The memory layout is shown in Figure 6-5.
+
+![](https://img-blog.csdnimg.cn/9cfde2c74ac24d529350ffda1bc6c2ac.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA,FF_FFt==,0)
 
 Coming back to the question of object templates, let's see what Set(key, val) does.
 
-`````cpp
-    void Template::Set(v8::Handle name, v8::Handle value, v8::PropertyAttribute attribute) { // ... i::Handle list(Utils::OpenHandle(this)-&gt;property_list()); NeanderArray array(list); array.add(Utils::OpenHandle(*name)); array.add(Utils::OpenHandle(*value)); array.add(Utils::OpenHandle(*v8::Integer::New(attribute))); } ```` The above code is roughly to append some content to a list. Let's see how this list comes from, that is, the implementation of the property_list function. ````cpp // Read the value of a property in the object #define READ_FIELD(p, offset) (*reinterpret_cast (FIELD_ADDR(p, offset)) static Object* cast(Object* value) { return value; } Object* TemplateInfo::property_list() { return Object::cast(READ_FIELD(this, kPropertyListOffset)); } ```` From the above code, we know that the internal layout is shown in Figure 6-6. ![](https://img-blog.csdnimg.cn/10abb0324ce54c9eba3743e8f4e61cc2.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6FFLy9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size) Figure 6-6 According to the memory layout, we know that the value of property_list is the value pointed to by list. Therefore, the memory operated by Set(key, val) is not the memory of the object itself. The object uses a pointer to point to a piece of memory to store the value of Set(key, val). The SetInternalFieldCount function is different, it affects (expands) the memory of the object itself. Let's take a look at its implementation. ````cpp void ObjectTemplate::SetInternalFieldCount(int value) { // The modification is the value of the memory corresponding to kInternalFieldCountOffset Utils::OpenHandle(this)-&gt;set_internal_field_count(i::Smi::FromInt(value)); } ```` We see that the implementation of the SetInternalFieldCount function is very simple, which is to save a number in the memory of the object itself. Next we look at the use of this field. Its usefulness will be described in detail later. ````cpp handle Factory::CreateApiFunction( handle obj, bool is_global) { int internal_field_count = 0; if (!obj-&gt;instance_template()-&gt;IsUndefined()) { // Get the instance template Handle of the function template instance_template = Handle (ObjectTemplateInfo::cast(obj-&gt;instance_template())); // Get the value of the internal_field_count field of the instance template (the one set by SetInternalFieldCount) internal_field_count = Smi::cast(instance_template-&gt;internal_field_count())-&gt;value(); } // Calculate the space required for the new object, if int instance_size = kPointerSize * internal_field_count; if (is_global) { instance_size += JSGlobalObject::kSize; } else { instance_size += JSObject::kHeaderSize; } InstanceType type = is_global ? JS_GLOBAL_OBJECT_TYPE : JS_OBJECT_TYPE; // Create a new function object Handle result = Factory::NewFunction(Factory::empty_symbol(), type, instance_size, code, true); } ```` We see that the meaning of the value of internal_field_count is to expand the memory of the object. For example, an object itself has only n bytes. If the value of internal_field_count is defined as 1, the memory of the object will become n+internal_field_count * The number of bytes of a pointer . The memory layout is shown in Figure 6-7. ![](https://img-blog.csdnimg.cn/e3ac46175f034690a3cda19d2e61969d.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG09nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_1RIRUFOQVJLSA==) Figure 6-7 1.4 Create a function Local through a function template functionTemplate = v8::FunctionTemplate::New(isolate(), New); global-&gt;Set('demo', functionTemplate -&gt;GetFunction()); In this way, we can directly call the demo variable in JS, and then the corresponding function will be executed. This is how JS calls C++. 2 How Node.js handles the problem of JS calling C++ Let's take the TCP module as an example. ````js const { TCP } = process.binding('tcp_wrap'); new TCP(...); ````TCPWrap(env, args.This(), provider);
+```cpp
+    void Template::Set(v8::Handle name, v8::Handle value, v8::PropertyAttribute attribute) {
+      // ... i::Handle list(Utils::OpenHandle(this)-&gt;property_list());
+     NeanderArray array(list);
+     array.add(Utils::OpenHandle(*name));
+     array.add(Utils::OpenHandle(*value));
+     array.add(Utils::OpenHandle(*v8::Integer::New(attribute)));
     }
-`````
+```
+
+The above code is roughly to append some content to a list. Let's see how this list comes from, that is, the implementation of the property_list function.
+
+```cpp
+// Read the value of a property in the object
+  #define READ_FIELD(p, offset) (*reinterpret_cast (FIELD_ADDR(p, offset))
+  static Object* cast(Object* value) { return value; }
+  Object* TemplateInfo::property_list() { return Object::cast(READ_FIELD(this, kPropertyListOffset)); }
+```
+
+From the above code, we know that the internal layout is shown in Figure 6-6.
+
+![](https://img-blog.csdnimg.cn/10abb0324ce54c9eba3743e8f4e61cc2.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6FFLy9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size)
+Figure 6-6
+
+According to the memory layout, we know that the value of property_list is the value pointed to by list. Therefore, the memory operated by Set(key, val) is not the memory of the object itself. The object uses a pointer to point to a piece of memory to store the value of Set(key, val). The SetInternalFieldCount function is different, it affects (expands) the memory of the object itself. Let's take a look at its implementation.
+
+```cpp
+void ObjectTemplate::SetInternalFieldCount(int value) {
+  // The modification is the value of the memory corresponding to kInternalFieldCountOffset
+  Utils::OpenHandle(this)-&gt;set_internal_field_count(i::Smi::FromInt(value)); }
+
+```
+
+We see that the implementation of the SetInternalFieldCount function is very simple, which is to save a number in the memory of the object itself. Next we look at the use of this field. Its usefulness will be described in detail later.
+
+```cpp
+
+handle Factory::CreateApiFunction( handle obj, bool is_global) { int internal_field_count = 0; if (!obj-&gt;instance_template()-&gt;IsUndefined()) {
+   // Get the instance template Handle of the function template
+   instance_template = Handle (ObjectTemplateInfo::cast(obj-&gt;instance_template()));
+    // Get the value of the internal_field_count field of the instance template (the one set by SetInternalFieldCount)
+    internal_field_count = Smi::cast(instance_template-&gt;internal_field_count())-&gt;value(); }
+    // Calculate the space required for the new object, if int instance_size = kPointerSize
+    * internal_field_count; if (is_global) { instance_size += JSGlobalObject::kSize; } else { instance_size += JSObject::kHeaderSize; }
+    InstanceType type = is_global ? JS_GLOBAL_OBJECT_TYPE : JS_OBJECT_TYPE;
+
+     // Create a new function object Handle
+     result = Factory::NewFunction(Factory::empty_symbol(), type, instance_size, code, true); }
+
+```
+
+We see that the meaning of the value of internal_field_count is to expand the memory of the object.
+
+For example, an object itself has only n bytes. If the value of internal_field_count is defined as 1, the memory of the object will become n+internal_field_count \* The number of bytes of a pointer .
+
+The memory layout is shown in Figure 6-7. ![](https://img-blog.csdnimg.cn/e3ac46175f034690a3cda19d2e61969d.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG09nLmNzZG4ubmV0L1RIRUFOQVJLSA==,size_1RIRUFOQVJLSA==)
+Figure 6-7
+
+1.4 Create a function Local through a function template functionTemplate = v8::FunctionTemplate::New(isolate(), New); global-&gt;Set('demo', functionTemplate -&gt;GetFunction()); In this way, we can directly call the demo variable in JS, and then the corresponding function will be executed. This is how JS calls C++.
+
+2. How Node.js handles the problem of JS calling C++ Let's take the TCP module as an example.
+
+```cpp
+TCPWrap(env, args.This(), provider);
+```
+
+```js
+const { TCP } = process.binding('tcp_wrap'); new TCP(...);
+```
 
 We follow the inheritance relationship of TCPWrap, all the way to HandleWrap
 
@@ -382,19 +476,22 @@ We look at SetAlignedPointerInInternalField.
     }
 
     void JSObject::SetEmbedderField(int index, Smi* value) {
-      // GetHeaderSize is the size of the fixed layout of the object, kPointerSize * index is the expanded memory size, find the corresponding position according to the index int offset = GetHeaderSize() + (kPointerSize * index);
-      // Write the memory of the corresponding location, that is, save the corresponding content to the memory WRITE_FIELD(this, offset, value);
+      // GetHeaderSize is the size of the fixed layout of the object, kPointerSize * index is the expanded memory size, find the corresponding position according to the index
+      int offset = GetHeaderSize() + (kPointerSize * index);
+      // Write the memory of the corresponding location, that is, save the corresponding content to the memory
+      WRITE_FIELD(this, offset, value);
     }
 ```
 
 After the SetAlignedPointerInInternalField function is expanded, what it does is to save a value into the memory of the V8 C++ object. What is the stored value? The input parameter object of BaseObject is the object created by the function template, and this is a TCPWrap object. So what the SetAlignedPointerInInternalField function does is to save a TCPWrap object to an object created by a function template, as shown in Figure 6-8.
-![](https://img-blog.csdnimg.cn/cead0241ca5a4f02b38727ae85145fcc.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJFFt_7,size_0)  
- Figure 6-8
+
+![](https://img-blog.csdnimg.cn/cead0241ca5a4f02b38727ae85145fcc.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJFFt_7,size_0)
+Figure 6-8
 
 What's the use of this? We continue to analyze. At this time, the new TCP is executed. Let's look at the logic of executing the tcp.connect() function at this time.
 
 ```cpp
-    template
+    // template
     void TCPWrap::Connect(const FunctionCallbackInfo &amp; args,
         std::function uv_ip_addr) {
       Environment* env = Environment::GetCurrent(args);
@@ -434,18 +531,14 @@ Just now we analyzed how the JS calls the C++ layer and how they are linked toge
         ConnectWrap* req_wrap =
             new ConnectWrap(env,
                               req_wrap_obj,
-                             , that is because a large number of template parameters are used. CallLibuvFunction is essentially a struct, which is similar to a class in C++. There is only one class function Call. In order to adapt to the calls of various types of functions in the Libuv layer, Node.js implements Three types of CallLibuvFunction are used, and a large number of template parameters are used. We only need to analyze one. We start the analysis based on the connect function of TCP. We first specify the template parameters of the Dispatch function.
-
+            )
 ```
 
-     template
-     template
+that is because a large number of template parameters are used. CallLibuvFunction is essentially a struct, which is similar to a class in C++. There is only one class function Call. In order to adapt to the calls of various types of functions in the Libuv layer, Node.js implements Three types of CallLibuvFunction are used, and a large number of template parameters are used. We only need to analyze one. We start the analysis based on the connect function of TCP. We first specify the template parameters of the Dispatch function.
 
-`````
+T corresponds to the type of ReqWrap, and LibuvFunction corresponds to the function type of Libuv. Here is int uv_tcp_connect(uv_connect_t\* req, ...), so it corresponds to the second case of LibuvFunction. Args is the first argument when executing Dispatch. remaining parameters. Below we concrete Dispatch.
 
-T corresponds to the type of ReqWrap, and LibuvFunction corresponds to the function type of Libuv. Here is int uv_tcp_connect(uv_connect_t* req, ...), so it corresponds to the second case of LibuvFunction. Args is the first argument when executing Dispatch. remaining parameters. Below we concrete Dispatch.
-
-````cpp
+```cpp
     int ReqWrap ::Dispatch(int(*)(uv_connect_t*, Args...), Args... args) {
       req_.data = this;
       int err = CallLibuvFunction ::Call(
@@ -456,7 +549,7 @@ T corresponds to the type of ReqWrap, and LibuvFunction corresponds to the funct
 
       return err;
     }
-`````
+```
 
 Then we look at the implementation of MakeLibuvRequestCallback.
 
@@ -490,7 +583,9 @@ Then we look at the implementation of MakeLibuvRequestCallback.
     };
 ```
 
-There are two cases for the implementation of MakeLibuvRequestCallback. The first of the template parameters is generally a ReqWrap subclass, and the second is generally a handle. When the ReqWrap class is initialized, the number of ReqWrap instances will be recorded in the env, so as to know how many requests are being made Processed by Libuv, if the second parameter of the template parameter is a function, it means that ReqWrap is not used to request Libuv, and the second implementation is used to hijack the callback to record the number of requests being processed by Libuv (such as the implementation of GetAddrInfo). So here we are adapting the first implementation. Transparently transmit C++ layer parameters to Libuv. Let's look at Dispatch again
+There are two cases for the implementation of MakeLibuvRequestCallback. The first of the template parameters is generally a ReqWrap subclass, and the second is generally a handle.
+
+When the ReqWrap class is initialized, the number of ReqWrap instances will be recorded in the env, so as to know how many requests are being made Processed by Libuv, if the second parameter of the template parameter is a function, it means that ReqWrap is not used to request Libuv, and the second implementation is used to hijack the callback to record the number of requests being processed by Libuv (such as the implementation of GetAddrInfo). So here we are adapting the first implementation. Transparently transmit C++ layer parameters to Libuv. Let's look at Dispatch again
 
 ```cpp
     int ReqWrap ::Dispatch(int(*)(uv_connect_t*, Args...), Args... args) {
@@ -513,10 +608,12 @@ Expand further.
     }
 ```
 
-Finally expand ```cpp
-static int Call(int(_fn)(uv_connect_t_, Args...), uv_loop_t* loop, uv_connect_t* req, PassedArgs... args) {  
- return fn(req, args...);  
- }
+Finally expand
+
+```cpp
+static int Call(int(_fn)(uv_connect_t_, Args...), uv_loop_t* loop, uv_connect_t* req, PassedArgs... args) {
+return fn(req, args...);
+}
 
      Call(
        uv_tcp_connect,
@@ -533,7 +630,7 @@ static int Call(int(_fn)(uv_connect_t_, Args...), uv_loop_t* loop, uv_connect_t*
        AfterConnect
      );
 
-`````
+```
 
 Then let's see what uv_tcp_connect does.
 
@@ -556,7 +653,7 @@ Then let's see what uv_tcp_connect does.
 
       // Associated req-&gt;handle = (uv_stream_t*)Interestingly, the listener will be notified when there is data to read on the stream or when an event occurs.
 
-`````
+```cpp
 
      class StreamResource {
       public:
@@ -582,12 +679,12 @@ Then let's see what uv_tcp_connect does.
        friend class StreamListener;
      };
 
-```
+````
 
 StreamResource is a base class, one of which is an instance of the StreamListener class, which we will analyze later. Let's look at the implementation of StreamResource.
 1 Add a listener
 
-```
+```cpp
 
      // add a listener
      inline void StreamResource::PushStreamListener(StreamListener* listener) {
@@ -598,13 +695,14 @@ StreamResource is a base class, one of which is an instance of the StreamListene
 
 ```
 
-We can register multiple listeners on a stream, and the stream's listener_ field maintains all the listener queues on the stream. The relationship diagram is shown in Figure 6-15.
- ![](https://img-blog.csdnimg.cn/1147406f206a481f9fc8ad8192592d06.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA)
+We can register multiple listeners on a stream, and the stream's listener\_ field maintains all the listener queues on the stream. The relationship diagram is shown in Figure 6-15.
+
+![](https://img-blog.csdnimg.cn/1147406f206a481f9fc8ad8192592d06.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L1RIRUFOQVJLSA)
 Figure 6-15
-2 delete the listener
 
-```
+2. delete the listener
 
+```cpp
      inline void StreamResource::RemoveStreamListener(StreamListener* listener) {
        StreamListener* previous;
        StreamListener* current;
@@ -622,43 +720,55 @@ Figure 6-15
        }
        // Reset the deleted listener's field listener-&gt;stream_ = nullptr;
        listener-&gt;previous_listener_ = nullptr;
-     }
+```
 
-````
+3. Apply for storage data
 
-3 Apply for storage data```
-    // Apply for a block of memory inline uv_buf_t StreamResource::EmitAlloc(size_t suggested_size) {
-      DebugSealHandleScope handle_scope(v8::Isolate::GetCurrent());
-      return listener_-&gt;OnStreamAlloc(suggested_size);
-    }
-````
+```cpp
+// Apply for a block of memory inline uv*buf_t
+StreamResource::EmitAlloc(size_t suggested_size) {
+DebugSealHandleScope handle_scope(v8::Isolate::GetCurrent());
+return listener*-&gt;OnStreamAlloc(suggested_size);
+}
+
+```
 
 StreamResource just defines the general logic of the operation stream, and the data storage and consumption are defined by the listener.
-4 Data can be read ````
-inline void StreamResource::EmitRead(ssize*t nread, const uv_buf_t&amp; buf) {  
- if (nread &gt; 0)  
- // record the size in bytes of the data read from the stream bytes_read* += static*cast (nread);  
- listener*-&gt;OnStreamRead(nread, buf);  
- }
 
-`````
+4. Data can be read
 
-5 Write callback ````
-    inline void StreamResource::EmitAfterWrite(WriteWrap* w, int status) {
-      DebugSealHandleScope handle_scope(v8::Isolate::GetCurrent());
-      listener_-&gt;OnStreamAfterWrite(w, status);
-    }
-`````
+```cpp
+inline void StreamResource::EmitRead(ssize*t nread, const uv_buf_t&amp; buf) {
+if (nread &gt; 0)
+// record the size in bytes of the data read from the stream bytes_read* += static*cast (nread);
+listener*-&gt;OnStreamRead(nread, buf);
+}
 
-6 close stream callback ```
-inline void StreamResource::EmitAfterShutdown(ShutdownWrap\* w, int status) {  
- DebugSealHandleScope handle*scope(v8::Isolate::GetCurrent());  
- listener*-&gt;OnStreamAfterShutdown(w, status);  
- }
+```
 
-````
+5. Write callback
 
-7 stream destroy callback ```
+```cpp
+inline void StreamResource::EmitAfterWrite(WriteWrap\* w, int status) {
+DebugSealHandleScope handle*scope(v8::Isolate::GetCurrent());
+listener*-&gt;OnStreamAfterWrite(w, status);
+}
+
+```
+
+6. close stream callback
+
+```cpp
+inline void StreamResource::EmitAfterShutdown(ShutdownWrap\* w, int status) {
+DebugSealHandleScope handle*scope(v8::Isolate::GetCurrent());
+listener*-&gt;OnStreamAfterShutdown(w, status);
+}
+
+```
+
+7 stream destroy callback
+
+```cpp
     inline StreamResource::~StreamResource() {
       while (listener_ != nullptr) {
         StreamListener* listener = listener_;
@@ -667,7 +777,7 @@ inline void StreamResource::EmitAfterShutdown(ShutdownWrap\* w, int status) {
           RemoveStreamListener(listener_);
       }
     }
-````
+```
 
 After the stream is destroyed, the listener needs to be notified and the relationship is released.
 
@@ -675,7 +785,7 @@ After the stream is destroyed, the listener needs to be notified and the relatio
 
 StreamBase is a subclass of StreamResource and extends the functionality of StreamResource.
 
-```
+```cpp
     class StreamBasereq_wrap-&gt;Dispose();
       }
 
@@ -692,9 +802,11 @@ StreamBase is a subclass of StreamResource and extends the functionality of Stre
     }
 ```
 
-3 write ```
-// Write Buffer, support sending file descriptor int StreamBase::WriteBuffer(const FunctionCallbackInfo &amp; args) {  
- Environment\* env = Environment::GetCurrent(args);
+3. write
+
+```cpp
+// Write Buffer, support sending file descriptor int StreamBase::WriteBuffer(const FunctionCallbackInfo &amp; args) {
+Environment\* env = Environment::GetCurrent(args);
 
        Local req_wrap_obj = args[0].As ();
        uv_buf_t buf;
@@ -724,7 +836,7 @@ StreamBase is a subclass of StreamResource and extends the functionality of Stre
 
 ```
 
-```
+```cpp
 
      inline StreamWriteResult StreamBase::Write(
          uv_buf_t* bufs,
@@ -762,12 +874,14 @@ StreamBase is a subclass of StreamResource and extends the functionality of Stre
        return StreamWriteResult { async, err, req_wrap, total_bytes };
      }
 
-`````
+```
 
-4 read ````
-    // Operation stream, start reading int StreamBase::ReadStartJS(const FunctionCallbackInfo &amp; args) {
-      return ReadStart();
-    }
+4. read
+
+```cpp
+// Operation stream, start reading int StreamBase::ReadStartJS(const FunctionCallbackInfo &amp; args) {
+return ReadStart();
+}
 
     // Operation stream, stop reading int StreamBase::ReadStopJS(const FunctionCallbackInfo &amp; args) {
       return ReadStop();
@@ -797,13 +911,14 @@ StreamBase is a subclass of StreamResource and extends the functionality of Stre
       // uint64_t -&gt; double. 53bits is enough for all real cases.
       args.GetReturnValue().Set(static_cast (wrap-&gt;bytes_read_));
     }
-`````
+
+```
 
 ### 6.8.3 LibuvStreamWrap
 
 LibuvStreamWrap is a subclass of StreamBase. It implements the interface of the parent class and also expands the capabilities of the stream.
 
-```
+```cpp
     class LibuvStreamWrap : public HandleWrap, public StreamBase {
      public:
       static void Initialize(v8::Local target,
@@ -873,24 +988,28 @@ LibuvStreamWrap is a subclass of StreamBase. It implements the interface of the 
     };
 ```
 
-1 Initialize ````
-LibuvStreamWrap::LibuvStreamWrap(Environment* env,  
- Local object,  
- uv_stream_t* stream,  
- AsyncWrap::ProviderType provider)  
- : HandleWrap(env,  
- object,  
- reinterpret*cast (stream),  
- provider),  
- StreamBase(env),  
- stream*(stream) {  
- StreamBase::AttachToObject(object);  
- }
+1. Initialize
 
-````
+```
+LibuvStreamWrap::LibuvStreamWrap(Environment* env,
+Local object,
+uv_stream_t* stream,
+AsyncWrap::ProviderType provider)
+: HandleWrap(env,
+object,
+reinterpret*cast (stream),
+provider),
+StreamBase(env),
+stream*(stream) {
+StreamBase::AttachToObject(object);
+}
+
+```
 
 When LibuvStreamWrap is initialized, it will point the internal pointer of the object used by the JS layer to itself, see HandleWrap.
-2 write operation ```
+2 write operation
+
+```cpp
     // Tool function to get the size of data bytes to be written void LibuvStreamWrap::GetWriteQueueSize(
         const FunctionCallbackInfo &amp; info) {
       LibuvStreamWrap* wrap;
@@ -929,18 +1048,24 @@ When LibuvStreamWrap is initialized, it will point the internal pointer of the o
       return scope.Escape(wrap_obj);
     }
 
-    // Implement OnUvRead, Libuv will call back when there is data in the stream or read to the end void LibuvStreamWrap::OnUvRead(ssize_t nread, const uv_buf_t* buf) {
+    // Implement OnUvRead, Libuv will call back when there is data in the stream or read to the end
+
+    void LibuvStreamWrap::OnUvRead(ssize_t nread, const uv_buf_t* buf) {
       HandleScope scope(env()-&gt;isolate());
       Context::Scope context_scope(env()-&gt;context());
       uv_handle_type type = UV_UNKNOWN_HANDLE;
-      // Whether it supports passing file descriptors and there is a pending file descriptor, then determine the file descriptor type if (is_named_pipe_ipc() &amp;&amp;
+      // Whether it supports passing file descriptors and there is a pending file descriptor, then determine the file descriptor type
+       if (is_named_pipe_ipc() &amp;&amp;
           uv_pipe_pending_count(reinterpret_cast (stream())) &gt; 0) {
         type = uv_pipe_pending_type(reinterpret_cast (stream()));
       }
 
-      // read successfully if (nread &gt; 0) {
+      // read successfully
+      if (nread &gt; 0) {
         MaybeLocal pending_obj;
-        // Create a new C++ object representing the client according to the type, and take a fd from the server and save it to the client if (type == UV_TCP) {
+        // Create a new C++ object representing the client according to the type, and take a fd from the server and save it to the client
+
+        if (type == UV_TCP) {
           pending_obj = AcceptHandle (env(), this);
         } else if (type == UV_NAMED_PIPE) {
           pending_obj = AcceptHandle (env(), this);
@@ -949,7 +1074,8 @@ When LibuvStreamWrap is initialized, it will point the internal pointer of the o
         } else {
           CHECK_EQ(type, UV_UNKNOWN_HANDLE);
         }
-        // If there is a file descriptor that needs to be processed, it is set to the JS layer object, and the JS layer uses if (!pending_obj.IsEmpty()) {
+        // If there is a file descriptor that needs to be processed, it is set to the JS layer object, and the JS layer uses
+        if (!pending_obj.IsEmpty()) {
           object()
               -&gt;Set(env()-&gt;context(),
                     env()-&gt;pending_handle_string(),
@@ -957,9 +1083,10 @@ When LibuvStreamWrap is initialized, it will point the internal pointer of the o
               .Check();
         }
       }
-      // Trigger read event, listener implements EmitRead(nread, *buf);
+      // Trigger read event, listener implements
+      EmitRead(nread, *buf);
     }
-````
+```
 
 The read operation supports not only reading general data, but also reading file descriptors. The C++ layer will create a new stream object to represent the file descriptor. It can be used in the JS layer.
 
@@ -967,7 +1094,7 @@ The read operation supports not only reading general data, but also reading file
 
 ConnectionWrap is a subclass of LibuvStreamWrap that extends the connection interface. Applies to streams with connection attributes, such as Unix domains and TCP.
 
-```
+```cpp
     // WrapType is the class of the C++ layer, UVType is the type template of Libuv
     class ConnectionWrap : public LibuvStreamWrap {
      public:
@@ -983,14 +1110,15 @@ ConnectionWrap is a subclass of LibuvStreamWrap that extends the connection inte
     };
 ```
 
-1 Callback after the connection is initiated ````
-template  
- void ConnectionWrap ::AfterConnect(uv_connect_t* req,  
- int status) {  
- // Get the corresponding C++ object std::unique_ptr through the Libuv structure req_wrap =
-(static_cast (req-&gt;data));  
- WrapType* wrap = static_cast (req-&gt;handle-&gt;data);  
- Environment\* env = wrap-&gt;env();
+1 Callback after the connection is initiated
+
+```cpp
+void ConnectionWrap ::AfterConnect(uv_connect_t* req,
+int status) {
+// Get the corresponding C++ object std::unique_ptr through the Libuv structure r
+eq_wrap = (static_cast (req-&gt;data));
+WrapType* wrap = static_cast (req-&gt;handle-&gt;data);
+Environment\* env = wrap-&gt;env();
 
        HandleScope handle_scope(env-&gt;isolate());
       context())
@@ -1003,9 +1131,10 @@ template
 ```
 
 ### 6.8.5 StreamReq
+
 StreamReq represents a request to operate a stream. It mainly saves the request context and the general logic after the operation ends.
 
-```
+```cpp
 
      // Request Libuv's base class class StreamReq {
       public:
@@ -1016,7 +1145,8 @@ StreamReq represents a request to operate a stream. It mainly saves the request 
        }
        // Subclass defines virtual AsyncWrap* GetAsyncWrap() = 0;
        // Get the associated raw js object v8::Local object();
-       // The callback after the end of the request will execute the onDone of the subclass, which is implemented by the subclass void Done(int status, const char* error_str = nullptr);
+       // The callback after the end of the request will execute the onDone of the subclass, which is implemented by the subclass
+       void Done(int status, const char* error_str = nullptr);
        // The JS layer object no longer executes the StreamReq instance void Dispose();
        // Get the stream being operated inline StreamBase* stream() const { return stream_; }
        // Get the StreamReq object from the JS layer object static StreamReq* FromObject(v8::Local req_wrap_obj);
@@ -1032,10 +1162,10 @@ StreamReq represents a request to operate a stream. It mainly saves the request 
 
 ```
 
-StreamReq has a member stream_, which represents the stream operated in the StreamReq request. Let's look at the implementation below.
+StreamReq has a member stream\_, which represents the stream operated in the StreamReq request. Let's look at the implementation below.
 1 JS layer request context and StreamReq relationship management.
 
-```
+```cpp
 
      inline void StreamReq::AttachToObject(v8::Local req_wrap_obj) {
        req_wrap_obj-&gt;SetAlignedPointerInInternalField(kStreamReqField, this);
@@ -1056,36 +1186,43 @@ StreamReq has a member stream_, which represents the stream operated in the Stre
        obj-&gt;SetAlignedPointerInInternalField(StreamReq::kStreamReqField, nullptr);
      }
 
-`````
+```
 
-2 Get the original JS layer request object ````
-    // Get the original js object inline v8::Local associated with the request StreamReq::object() {
-      return GetAsyncWrap()-&gt;object();
-    }
-`````
+2 Get the original JS layer request object
 
-3 Request end callback ```
-inline void StreamReq::Done(int status, const char* error_str) {  
- AsyncWrap* async_wrap = GetAsyncWrap();  
- Environment\* env = async_wrap-&gt;env();  
- if (error_str != nullptr) {  
- async_wrap-&gt;object()-&gt;Set(env-&gt;context(),  
- env-&gt;error_string(),  
- OneByteString(env-&gt;isolate(),  
- error_str))  
- .Check();  
- }  
- // Execute the subclass's OnDone  
- OnDone(status);  
- }
+```cpp
+// Get the original js object inline v8::Local associated with the request StreamReq::object() {
+return GetAsyncWrap()-&gt;object();
+}
+
+```
+
+3 Request end callback
+
+```cpp
+inline void StreamReq::Done(int status, const char* error_str) {
+AsyncWrap* async_wrap = GetAsyncWrap();
+Environment\* env = async_wrap-&gt;env();
+if (error_str != nullptr) {
+async_wrap-&gt;object()-&gt;Set(env-&gt;context(),
+env-&gt;error_string(),
+OneByteString(env-&gt;isolate(),
+error_str))
+.Check();
+}
+// Execute the subclass's OnDone
+OnDone(status);
+}
 
 ```
 
 After the stream operation request ends, Done will be executed uniformly, and Done will execute the OnDone function implemented by the subclass.
+
 ### 6.8.6 ShutdownWrap
+
 ShutdownWrap is a subclass of StreamReq and represents a request to close the stream once.
 
-```
+```cpp
 
      class ShutdownWrap : public StreamReq {
       public:
@@ -1100,7 +1237,7 @@ ShutdownWrap is a subclass of StreamReq and represents a request to close the st
 
 ShutdownWrap implements the OnDone interface and is executed by the base class after closing the stream.
 
-```
+```cpp
 
      /*
        Callback at the end of the shutdown, Libuv is called by the request class (ShutdownWrap),
@@ -1113,7 +1250,10 @@ ShutdownWrap implements the OnDone interface and is executed by the base class a
 
 ```
 
-### 6.8.7Processing logic when the current stream is closed inline void StreamListener::OnStreamAfterShutdown(ShutdownWrap* w, int status) {
+### 6.8.7 Processing logic when the current stream is closed
+
+```cpp
+inline void StreamListener::OnStreamAfterShutdown(ShutdownWrap* w, int status) {
       previous_listener_-&gt;OnStreamAfterShutdown(w, status);
     }
     // Implement the processing logic at the end of writing inline void StreamListener::OnStreamAfterWrite(WriteWrap* w, int status) {
@@ -1127,7 +1267,7 @@ The logic of StreamListener is not much, and the specific implementation is in t
 
 ReportWritesToJSStreamListener is a subclass of StreamListener. Covers some interfaces and expands some functions.
 
-```
+```cpp
     class ReportWritesToJSStreamListener : public StreamListener {
      public:
       // Implement these two interfaces of the parent class void OnStreamAfterWrite(WriteWrap* w, int status) override;
@@ -1141,7 +1281,7 @@ ReportWritesToJSStreamListener is a subclass of StreamListener. Covers some inte
 1 OnStreamAfterReqFinished
 OnStreamAfterReqFinished is a unified callback after the request operation stream ends.
 
-```
+```cpp
     void ReportWritesToJSStreamListener::OnStreamAfterWrite(
         WriteWrap* req_wrap, int status) {
       OnStreamAfterReqFinished(req_wrap, status);
@@ -1153,69 +1293,83 @@ OnStreamAfterReqFinished is a unified callback after the request operation strea
     }
 ```
 
-Let's take a look at the specific implementation ```
-void ReportWritesToJSStreamListener::OnStreamAfterReqFinished(  
- StreamReq* req_wrap, int status) {  
- // Request the stream to operate on StreamBase* stream = static*cast (stream*);  
- Environment* env = stream-&gt;stream_env();  
- AsyncWrap* async_wrap = req_wrap-&gt;GetAsyncWrap();  
- HandleScope handle_scope(env-&gt;isolate());  
- Context::Scope context_scope(env-&gt;context());  
- // Get the original JS layer object Local req_wrap_obj = async_wrap-&gt;object();
+Let's take a look at the specific implementation
 
-       Local argv[] = {
-         Integer::New(env-&gt;isolate(), status),
-         stream-&gt;GetObject(),
-         Undefined(env-&gt;isolate())
-       };
+```cpp
+void ReportWritesToJSStreamListener::OnStreamAfterReqFinished(
+StreamReq* req_wrap, int status) {
+// Request the stream to operate on StreamBase* stream = static*cast (stream*);
+Environment* env = stream-&gt;stream_env();
+AsyncWrap* async_wrap = req_wrap-&gt;GetAsyncWrap();
+HandleScope handle_scope(env-&gt;isolate());
+Context::Scope context_scope(env-&gt;context());
+// Get the original JS layer object Local req_wrap_obj = async_wrap-&gt;object();
 
-       const char* msg = stream-&gt;Error();
-       if (msg != nullptr) {
-         argv[2] = OneByteString(env-&gt;isolate(), msg);
-         stream-&gt;ClearError();
-       }
-       // Callback JS layer if (req_wrap_obj-&gt;Has(env-&gt;context(), env-&gt;oncomplete_string()).FromJust())
-         async_wrap-&gt;MakeCallback(env-&gt;oncomplete_string(), arraysize(argv), argv);
-     }
+      Local argv[] = {
+        Integer::New(env-&gt;isolate(), status),
+        stream-&gt;GetObject(),
+        Undefined(env-&gt;isolate())
+      };
 
-````
+      const char* msg = stream-&gt;Error();
+      if (msg != nullptr) {
+        argv[2] = OneByteString(env-&gt;isolate(), msg);
+        stream-&gt;ClearError();
+      }
+      // Callback JS layer if (req_wrap_obj-&gt;Has(env-&gt;context(), env-&gt;oncomplete_string()).FromJust())
+        async_wrap-&gt;MakeCallback(env-&gt;oncomplete_string(), arraysize(argv), argv);
+    }
+
+```
 
 OnStreamAfterReqFinished will call back the JS layer.
-6.8.12 EmitToJSStreamListener
-EmitToJSStreamListener is a subclass of ReportWritesToJSStreamListener```
-    class EmitToJSStreamListener : public ReportWritesToJSStreamListener {
-     public:
-      uv_buf_t OnStreamAlloc(size_t suggested_size) override;
-      void OnStreamRead(ssize_t nread, const uv_buf_t&amp; buf) override;
-    };
-````
 
-Let's take a look at the implementation ````
-// Allocate a block of memory uv*buf_t EmitToJSStreamListener::OnStreamAlloc(size_t suggested_size) {  
- Environment\* env = static_cast (stream*)-&gt;stream*env();  
- return env-&gt;AllocateManaged(suggested_size).release();  
- }  
- // Callback after reading data void EmitToJSStreamListener::OnStreamRead(ssize_t nread, const uv_buf_t&amp; buf*) {  
- StreamBase* stream = static*cast (stream*);  
- Environment* env = stream-&gt;stream*env();  
- HandleScope handle_scope(env-&gt;isolate());  
- Context::Scope context_scope(env-&gt;context());  
- AllocatedBuffer buf(env, buf*);  
- // read failed if (nread &lt;= 0) {  
- if (nread &lt; 0)  
- stream-&gt;CallJSOnreadMethod(nread, Local ());  
- return;  
- }
+### 6.8.12 EmitToJSStreamListener
 
-       buf.Resize(nread);
+EmitToJSStreamListener is a subclass of ReportWritesToJSStreamListener
+
+```cpp
+class EmitToJSStreamListener : public ReportWritesToJSStreamListener {
+public:
+uv_buf_t OnStreamAlloc(size_t suggested_size) override;
+void OnStreamRead(ssize_t nread, const uv_buf_t&amp; buf) override;
+};
+
+```
+
+Let's take a look at the implementation
+
+```cpp
+
+// Allocate a block of memory uv*buf_t
+EmitToJSStreamListener::OnStreamAlloc(size_t suggested_size) {
+Environment \* env = static_cast (stream*)-&gt;stream*env();
+return env-&gt;AllocateManaged(suggested_size).release();
+}
+// Callback after reading data
+void EmitToJSStreamListener::OnStreamRead(ssize_t nread, const uv_buf_t&amp; buf*) {
+StreamBase* stream = static*cast (stream*);
+Environment* env = stream-&gt;stream*env();
+HandleScope handle_scope(env-&gt;isolate());
+Context::Scope context_scope(env-&gt;context());
+AllocatedBuffer buf(env, buf*);
+// read failed
+if (nread &lt;= 0) {
+if (nread &lt; 0)
+stream-&gt;CallJSOnreadMethod(nread, Local ());
+return;
+}
+
+   buf.Resize(nread);
        // read success callback JS layer stream-&gt;CallJSOnreadMethod(nread, buf.ToArrayBuffer());
-     }
+
+}
 
 ```
 
 We see that the listener will call back the interface of the stream after processing the data, and the specific logic is implemented by the subclass. Let's look at the implementation of a subclass (stream's default listener).
 
-```
+```cpp
 
      class EmitToJSStreamListener : public ReportWritesToJSStreamListener {
       public:
@@ -1225,18 +1379,22 @@ We see that the listener will call back the interface of the stream after proces
 
 ```
 
-= static_cast (stream_);
-      Environment* env = stream-&gt;stream_env();
-      HandleScope handle_scope(env-&gt;isolate());
-      Context::Scope context_scope(env-&gt;context());
-      AllocatedBuffer buf(env, buf_);
-      stream-&gt;CallJSOnreadMethod(nread, buf.ToArrayBuffer());
-    }
+```cpp
+
+= static*cast (stream*);
+Environment\* env = stream-&gt;stream*env();
+HandleScope handle_scope(env-&gt;isolate());
+Context::Scope context_scope(env-&gt;context());
+AllocatedBuffer buf(env, buf*);
+stream-&gt;CallJSOnreadMethod(nread, buf.ToArrayBuffer());
+}
+
 ```
 
 Continue to call back CallJSOnreadMethod
 
-```
+```cpp
+
     MaybeLocal StreamBase::CallJSOnreadMethod(ssize_t nread,
                                                      Local ab,
                                                      size_t offset,
@@ -1249,6 +1407,7 @@ Continue to call back CallJSOnreadMethod
       CHECK(onread-&gt;IsFunction());
       return wrap-&gt;MakeCallback(onread.As (), arraysize(argv), argv);
     }
+
 ```
 
 CallJSOnreadMethod will call back the onread callback function of the JS layer. onread will push the data to the stream, and then trigger the data event.

@@ -7,3 +7,4 @@
 - [Event Loop](./event-loop.md)
 - [Thread pool](./thread-pool.md)
 - [Streams](./streams.md)
+- [C++ side](./cpp-bindings.md)
